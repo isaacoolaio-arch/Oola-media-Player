@@ -2,7 +2,7 @@
    Caches only the app shell so the player opens with no connection.
    Your media is stored in IndexedDB (not here), so it is always available
    offline without any network cache. */
-const CACHE='oola-play-v1';
+const CACHE='oola-play-v2';
 const SHELL=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',e=>{
