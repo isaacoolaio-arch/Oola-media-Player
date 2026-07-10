@@ -77,12 +77,25 @@
   .edit{flex:none;background:none;border:0;color:var(--muted);font-size:15px;padding:8px;cursor:pointer;opacity:.55}
   .edit:active{color:var(--video);opacity:1}
 
+  /* ---------- drag & drop ---------- */
+  .dropHint{display:none;font-size:12px;color:var(--muted);align-self:center;white-space:nowrap}
+  .dropOverlay{position:fixed;inset:0;background:#0D0F14ee;border:3px dashed var(--video);
+    display:none;align-items:center;justify-content:center;z-index:60;
+    font-size:22px;font-weight:700;color:var(--video);text-align:center;padding:40px}
+  .dropOverlay.show{display:flex}
+
   /* ---------- editor sheet ---------- */
   .editSheet{gap:0;overflow-y:auto}
   .toolTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
   .toolTabs button{flex:none;background:var(--surface);border:1px solid var(--line);color:var(--muted);
     padding:8px 13px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
   .toolTabs button.on{background:var(--surface-2);color:var(--text);border-color:var(--video)}
+  .editBody{display:flex;flex-direction:column;gap:14px}
+  .editLeft{background:#000;border-radius:var(--r);overflow:hidden;display:flex;
+    align-items:center;justify-content:center;min-height:140px}
+  #editPreviewVideo{width:100%;max-height:300px;display:none;background:#000}
+  #editPreviewAudio{width:90%;display:none;margin:22px auto}
+  .editRight{display:flex;flex-direction:column;gap:0}
   .editPanel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-top:4px}
   .editRow{display:flex;align-items:center;gap:10px;margin:10px 0}
   .editRow span:first-child{width:44px;font-size:12px;color:var(--muted);flex:none}
@@ -181,18 +194,35 @@
   /* ---------- desktop / wide screens ---------- */
   @media(min-width:820px){
     header,.import,.tools{max-width:1080px;margin-left:auto;margin-right:auto;width:100%}
+    .import{align-items:center}
+    .dropHint{display:inline}
     .lib{max-width:1080px;margin:0 auto;width:100%;
          display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
          gap:2px 20px;align-content:start;padding:2px 0 120px}
+    .row{cursor:pointer;transition:background .12s}
+    .row:hover{background:var(--surface)}
+    .row .edit,.row .del{opacity:0;transition:opacity .15s}
+    .row:hover .edit,.row:hover .del{opacity:.7}
     .mini{left:50%;right:auto;transform:translateX(-50%);width:min(680px,calc(100% - 32px))}
     .full .stage{max-width:1120px;margin:0 auto}
     .full .seek,.full .transport,.full .extra{max-width:700px;margin-left:auto;margin-right:auto}
     .full .seek{width:100%}
     canvas#viz{width:min(380px,42vh);height:min(380px,42vh)}
+
+    /* editor: two-column, live preview left, controls right */
+    .editSheet .toolTabs{max-width:1120px;margin:0 auto 4px;width:100%}
+    .editBody{max-width:1120px;margin:0 auto;width:100%;
+      display:grid;grid-template-columns:1.3fr 400px;gap:26px;align-items:start}
+    .editLeft{min-height:420px;position:sticky;top:0}
+    #editPreviewVideo{max-height:520px}
+    #editPreviewAudio{width:80%}
+    .editRight{max-height:calc(100dvh - 140px);overflow-y:auto;padding-right:2px}
   }
 </style>
 </head>
 <body>
+
+<div class="dropOverlay" id="dropOverlay"><div>⬇️ Drop audio or video files to import</div></div>
 
 <header>
   <div class="brand">Oola <span>Play</span></div>
@@ -206,6 +236,7 @@
   <label>＋ Import music or videos
     <input type="file" id="file" accept="audio/*,video/*" multiple>
   </label>
+  <span class="dropHint">or drag &amp; drop files anywhere on the page</span>
 </div>
 
 <div class="tools">
@@ -279,55 +310,63 @@
     <button data-t="mute">Mute</button>
   </div>
 
-  <div class="editPanel" id="panelTrim">
-    <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5"><span id="editStartLbl" class="mono">0:00</span></div>
-    <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5"><span id="editEndLbl" class="mono">0:00</span></div>
-    <p class="hint">Cuts the clip to the selected range and re-encodes it as MP4.</p>
-  </div>
-
-  <div class="editPanel" id="panelCompress" style="display:none">
-    <div class="segLabel">Quality</div>
-    <div class="seg" id="compressQ">
-      <button data-v="high">High (larger)</button>
-      <button data-v="medium" class="on">Medium</button>
-      <button data-v="low">Low (smallest)</button>
+  <div class="editBody">
+    <div class="editLeft">
+      <video id="editPreviewVideo" playsinline controls></video>
+      <audio id="editPreviewAudio" controls></audio>
     </div>
-    <div class="segLabel">Resolution cap</div>
-    <div class="seg" id="compressRes">
-      <button data-v="orig" class="on">Original</button>
-      <button data-v="720">720p</button>
-      <button data-v="480">480p</button>
+    <div class="editRight">
+      <div class="editPanel" id="panelTrim">
+        <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5"><span id="editStartLbl" class="mono">0:00</span></div>
+        <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5"><span id="editEndLbl" class="mono">0:00</span></div>
+        <p class="hint">Cuts the clip to the selected range and re-encodes it as MP4. Drag the sliders — the preview seeks with you.</p>
+      </div>
+
+      <div class="editPanel" id="panelCompress" style="display:none">
+        <div class="segLabel">Quality</div>
+        <div class="seg" id="compressQ">
+          <button data-v="high">High (larger)</button>
+          <button data-v="medium" class="on">Medium</button>
+          <button data-v="low">Low (smallest)</button>
+        </div>
+        <div class="segLabel">Resolution cap</div>
+        <div class="seg" id="compressRes">
+          <button data-v="orig" class="on">Original</button>
+          <button data-v="720">720p</button>
+          <button data-v="480">480p</button>
+        </div>
+        <p class="hint">Shrinks file size — handy before sending clips over WhatsApp or slow data.</p>
+      </div>
+
+      <div class="editPanel" id="panelConvert" style="display:none">
+        <p class="hint">Re-encodes to H.264/MP4. Use this when a clip shows the "picture can't be shown" HEVC message — same fix as <b>oola-convert.bat</b>, but right here.</p>
+      </div>
+
+      <div class="editPanel" id="panelAudio" style="display:none">
+        <p class="hint">Extracts just the audio track and saves it as a new MP3 item in your library.</p>
+      </div>
+
+      <div class="editPanel" id="panelRotate" style="display:none">
+        <div class="segLabel">Rotate</div>
+        <div class="seg" id="rotateDeg">
+          <button data-v="90" class="on">90°</button>
+          <button data-v="180">180°</button>
+          <button data-v="270">270°</button>
+        </div>
+        <p class="hint">Fixes clips filmed sideways or upside-down.</p>
+      </div>
+
+      <div class="editPanel" id="panelMute" style="display:none">
+        <p class="hint">Removes the audio track, keeps the picture. Fast — no re-encoding needed.</p>
+      </div>
+
+      <div class="editStatus" id="editStatus"></div>
+      <div class="editProgWrap"><div class="editProg" id="editProg"></div></div>
+      <pre class="editLog" id="editLog"></pre>
+
+      <button class="editApplyBtn" id="editApply">Apply — save as new item</button>
     </div>
-    <p class="hint">Shrinks file size — handy before sending clips over WhatsApp or slow data.</p>
   </div>
-
-  <div class="editPanel" id="panelConvert" style="display:none">
-    <p class="hint">Re-encodes to H.264/MP4. Use this when a clip shows the "picture can't be shown" HEVC message — same fix as <b>oola-convert.bat</b>, but on the phone.</p>
-  </div>
-
-  <div class="editPanel" id="panelAudio" style="display:none">
-    <p class="hint">Extracts just the audio track and saves it as a new MP3 item in your library.</p>
-  </div>
-
-  <div class="editPanel" id="panelRotate" style="display:none">
-    <div class="segLabel">Rotate</div>
-    <div class="seg" id="rotateDeg">
-      <button data-v="90" class="on">90°</button>
-      <button data-v="180">180°</button>
-      <button data-v="270">270°</button>
-    </div>
-    <p class="hint">Fixes clips filmed sideways or upside-down.</p>
-  </div>
-
-  <div class="editPanel" id="panelMute" style="display:none">
-    <p class="hint">Removes the audio track, keeps the picture. Fast — no re-encoding needed.</p>
-  </div>
-
-  <div class="editStatus" id="editStatus"></div>
-  <div class="editProgWrap"><div class="editProg" id="editProg"></div></div>
-  <pre class="editLog" id="editLog"></pre>
-
-  <button class="editApplyBtn" id="editApply">Apply — save as new item</button>
 </div>
 
 <!-- single reusable audio element (kept for the analyser graph) -->
@@ -386,8 +425,7 @@ const fmtSize=b=>b>1e6?(b/1e6).toFixed(1)+' MB':(b/1e3|0)+' KB';
 const titleFrom=n=>n.replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' ').trim();
 
 /* ---------------- import ---------------- */
-$('#file').addEventListener('change', async e=>{
-  const files=[...e.target.files]; e.target.value='';
+async function importFiles(files){
   if(!files.length) return;
   if(navigator.storage?.persist) navigator.storage.persist(); // ask browser not to evict
   for(const f of files){
@@ -403,6 +441,26 @@ $('#file').addEventListener('change', async e=>{
     await dbAdd(rec);
   }
   await refresh(); updateStorage();
+}
+$('#file').addEventListener('change', async e=>{
+  const files=[...e.target.files]; e.target.value='';
+  await importFiles(files);
+});
+
+/* drag & drop — mainly useful on desktop where the library lives on disk */
+let dragDepth=0;
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev, e=>{
+  if(!e.dataTransfer?.types?.includes('Files')) return;
+  e.preventDefault();
+  if(ev==='dragenter'){ dragDepth++; $('#dropOverlay').classList.add('show'); }
+}));
+document.addEventListener('dragleave', e=>{
+  if(--dragDepth<=0){ dragDepth=0; $('#dropOverlay').classList.remove('show'); }
+});
+document.addEventListener('drop', async e=>{
+  e.preventDefault(); dragDepth=0; $('#dropOverlay').classList.remove('show');
+  const files=[...(e.dataTransfer?.files||[])].filter(f=>f.type.startsWith('audio')||f.type.startsWith('video'));
+  await importFiles(files);
 });
 function probeAudio(blob){return new Promise(res=>{
   const a=new Audio();const u=URL.createObjectURL(blob);
@@ -701,19 +759,35 @@ async function loadFFmpeg(){
   return ffmpegLoading;
 }
 
-function openEdit(id){
-  const m=library.find(x=>x.id===id); if(!m) return;
+let editPreviewUrl=null;
+async function openEdit(id){
+  const rec=await dbGet(id); if(!rec) return;
   editId=id;
-  $('#editTitle').textContent=m.title;
-  const dur=Math.max(0,Math.round(m.duration||0));
+  $('#editTitle').textContent=rec.title;
+  const dur=Math.max(0,Math.round(rec.duration||0));
   $('#editStart').max=dur; $('#editEnd').max=dur;
   $('#editStart').value=0; $('#editEnd').value=dur;
   $('#editStartLbl').textContent='0:00'; $('#editEndLbl').textContent=fmtDur(dur);
   selectEditTool('trim');
   setEditStatus(''); setEditProgress(0); $('#editLog').textContent='';
+
+  if(editPreviewUrl){URL.revokeObjectURL(editPreviewUrl);editPreviewUrl=null;}
+  editPreviewUrl=URL.createObjectURL(rec.blob);
+  const isVid=rec.type==='video';
+  const pv=$('#editPreviewVideo'), pa=$('#editPreviewAudio');
+  pv.style.display=isVid?'block':'none'; pa.style.display=isVid?'none':'block';
+  const el=isVid?pv:pa;
+  el.pause(); el.src=editPreviewUrl; el.currentTime=0;
+
   $('#editSheet').classList.add('show');
 }
-function closeEdit(){ if(editBusy) return; $('#editSheet').classList.remove('show'); }
+function activeEditPreview(){ return $('#editPreviewVideo').style.display!=='none' ? $('#editPreviewVideo') : $('#editPreviewAudio'); }
+function closeEdit(){
+  if(editBusy) return;
+  $('#editSheet').classList.remove('show');
+  ['#editPreviewVideo','#editPreviewAudio'].forEach(s=>{const el=$(s); el.pause();});
+  if(editPreviewUrl){URL.revokeObjectURL(editPreviewUrl); editPreviewUrl=null;}
+}
 $('#editClose').onclick=closeEdit;
 
 $('#editToolTabs').addEventListener('click', e=>{
@@ -728,8 +802,14 @@ function selectEditTool(t){
     if(el) el.style.display = k.toLowerCase()===t?'':'none';
   });
 }
-$('#editStart').addEventListener('input',e=>{$('#editStartLbl').textContent=fmtDur(+e.target.value);});
-$('#editEnd').addEventListener('input',e=>{$('#editEndLbl').textContent=fmtDur(+e.target.value);});
+$('#editStart').addEventListener('input',e=>{
+  $('#editStartLbl').textContent=fmtDur(+e.target.value);
+  try{activeEditPreview().currentTime=+e.target.value;}catch(_){}
+});
+$('#editEnd').addEventListener('input',e=>{
+  $('#editEndLbl').textContent=fmtDur(+e.target.value);
+  try{activeEditPreview().currentTime=+e.target.value;}catch(_){}
+});
 function segHandler(containerId){
   const c=document.getElementById(containerId); if(!c) return;
   c.addEventListener('click', e=>{
@@ -813,6 +893,18 @@ async function applyEdit(){
     editBusy=false; $('#editApply').disabled=false; $('#editApply').textContent='Apply — save as new item';
   }
 }
+
+/* ---------------- keyboard shortcuts (desktop) ---------------- */
+document.addEventListener('keydown', e=>{
+  const tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA') return;
+  if(e.code==='Space' && $('#full').classList.contains('show') && !$('#editSheet').classList.contains('show')){
+    e.preventDefault(); togglePlay();
+  } else if(e.code==='Escape'){
+    if($('#editSheet').classList.contains('show')) closeEdit();
+    else if($('#full').classList.contains('show')) closeFull();
+  }
+});
 
 /* ---------------- init ---------------- */
 (async function init(){
