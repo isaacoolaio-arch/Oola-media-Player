@@ -740,14 +740,14 @@ async function loadFFmpeg(){
   ffmpegLoading=(async()=>{
     setEditStatus('Loading video engine (first time only, ~30MB, needs internet)…');
     const [{FFmpeg}, util] = await Promise.all([
-      import('https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js'),
-      import('https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js')
+      import('./ffmpeg/ffmpeg/index.js'),
+      import('./ffmpeg/util/index.js')
     ]);
     ffUtil=util;
     const f=new FFmpeg();
     f.on('progress', ({progress})=>setEditProgress(progress));
     f.on('log', ({message})=>appendEditLog(message));
-    const base='https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+    const base='./ffmpeg/core';
     await f.load({
       coreURL: await util.toBlobURL(`${base}/ffmpeg-core.js`,'text/javascript'),
       wasmURL: await util.toBlobURL(`${base}/ffmpeg-core.wasm`,'application/wasm'),
