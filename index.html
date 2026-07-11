@@ -171,6 +171,13 @@
   .editRow{display:flex;align-items:center;gap:10px;margin:10px 0}
   .editRow span:first-child{width:44px;font-size:12px;color:var(--muted);flex:none}
   .editRow input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:var(--surface-2);outline:none}
+  .stepper{display:inline-flex;align-items:center;gap:4px;flex:none}
+  .stepper .mono{min-width:44px;text-align:center;font-size:13px}
+  .stepper button{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    width:24px;height:24px;border-radius:6px;font-size:9px;cursor:pointer;padding:0;line-height:1;
+    display:flex;align-items:center;justify-content:center}
+  .stepper button:hover{border-color:var(--video);color:var(--video)}
+  .stepper button:active{background:var(--video);color:#062622}
   .previewSel{margin-top:6px;background:var(--surface-2);border:1px solid var(--video);color:var(--video);
     border-radius:12px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
   .previewSel.playing{background:var(--video);color:#062622}
@@ -600,8 +607,12 @@
     </div>
     <div class="editRight">
       <div class="editPanel" id="panelTrim">
-        <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5"><span id="editStartLbl" class="mono">0:00</span></div>
-        <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5"><span id="editEndLbl" class="mono">0:00</span></div>
+        <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5">
+          <span class="stepper"><button class="stepDn" data-for="editStart" title="−1 second">▼</button><span id="editStartLbl" class="mono">0:00</span><button class="stepUp" data-for="editStart" title="+1 second">▲</button></span>
+        </div>
+        <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5">
+          <span class="stepper"><button class="stepDn" data-for="editEnd" title="−1 second">▼</button><span id="editEndLbl" class="mono">0:00</span><button class="stepUp" data-for="editEnd" title="+1 second">▲</button></span>
+        </div>
         <button class="previewSel" id="previewSel">▶ Preview selection</button>
         <div class="segLabel" id="trimFmtLabel" style="margin-top:12px;display:none">Save trimmed part as</div>
         <div class="seg" id="trimFmt" style="display:none">
@@ -1461,13 +1472,26 @@ function selectEditTool(t){
     if(el) el.style.display = k.toLowerCase()===t?'':'none';
   });
 }
-$('#editStart').addEventListener('input',e=>{
-  $('#editStartLbl').textContent=fmtDur(+e.target.value);
-  try{activeEditPreview().currentTime=+e.target.value;}catch(_){}
-});
-$('#editEnd').addEventListener('input',e=>{
-  $('#editEndLbl').textContent=fmtDur(+e.target.value);
-  try{activeEditPreview().currentTime=+e.target.value;}catch(_){}
+function setTrimValue(which, val, seek=true){
+  const startEl=$('#editStart'), endEl=$('#editEnd');
+  const el = which==='editStart'?startEl:endEl;
+  const max=+el.max;
+  val=Math.max(0, Math.min(max, val));
+  // clamp so Start stays <= End (keep at least 0.5s apart)
+  if(which==='editStart' && val > +endEl.value-0.5) val=Math.max(0, +endEl.value-0.5);
+  if(which==='editEnd'   && val < +startEl.value+0.5) val=Math.min(max, +startEl.value+0.5);
+  el.value=val;
+  $('#'+which+'Lbl').textContent=fmtDur(val);
+  if(seek){ try{ activeEditPreview().currentTime=val; }catch(_){} }
+}
+$('#editStart').addEventListener('input',e=>setTrimValue('editStart', +e.target.value));
+$('#editEnd').addEventListener('input',e=>setTrimValue('editEnd', +e.target.value));
+// steppers: nudge by 1 second
+document.querySelectorAll('.stepUp,.stepDn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const which=b.dataset.for, cur=+$('#'+which).value;
+    setTrimValue(which, cur + (b.classList.contains('stepUp')?1:-1));
+  });
 });
 
 /* preview the trimmed Start->End range before applying */
