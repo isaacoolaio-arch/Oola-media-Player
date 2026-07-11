@@ -335,7 +335,38 @@
     border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
   .deckLoad:hover{border-color:var(--video)}
   .deckName{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.2em}
-  .wave{width:100%;height:70px;background:#0a0c11;border-radius:8px;display:block}
+  .wave{width:100%;height:46px;background:#0a0c11;border-radius:8px;display:block}
+
+  /* ---- turntable ---- */
+  .turntable{position:relative;width:100%;aspect-ratio:1/1;max-width:260px;margin:4px auto;display:flex;align-items:center;justify-content:center}
+  .platter{width:88%;height:88%;border-radius:50%;position:relative;
+    background:radial-gradient(circle at 50% 50%, #14161d 0 26%, #0c0d12 26% 100%);
+    box-shadow:0 0 0 6px #0a0b10, 0 8px 30px #000a, inset 0 0 30px #000;}
+  #deckA .platter{box-shadow:0 0 0 6px #0a0b10, 0 0 34px var(--video-dim,#57d9c655), inset 0 0 30px #000}
+  #deckB .platter{box-shadow:0 0 0 6px #0a0b10, 0 0 34px var(--music-dim,#ff5c7a55), inset 0 0 30px #000}
+  .vinyl{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .platter.spin .vinyl{animation:spin 2s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .groove{position:absolute;border-radius:50%;border:1px solid #ffffff08}
+  .groove.g1{inset:9%}.groove.g2{inset:17%}.groove.g3{inset:25%}.groove.g4{inset:33%}
+  .label{width:46%;height:46%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    position:relative;z-index:2;box-shadow:inset 0 0 0 2px #ffffff14}
+  #deckA .label{background:radial-gradient(circle,#1a2b2c,#0f1a1b)}
+  #deckB .label{background:radial-gradient(circle,#2b1a20,#1b0f14)}
+  .label img{width:100%;height:100%;object-fit:cover}
+  .labelIc{font-size:30px;color:#ffffff55}
+  .spindle{position:absolute;width:9px;height:9px;border-radius:50%;background:#c8ccd4;z-index:3;box-shadow:0 0 4px #000}
+  /* tonearm */
+  .tonearm{position:absolute;top:-2%;right:-2%;width:44%;height:44%;transform-origin:83% 17%;
+    transform:rotate(-32deg);transition:transform .5s ease;pointer-events:none;z-index:4}
+  .turntable.playing .tonearm{transform:rotate(0deg)}
+  .tonearm .base{fill:#2a2f3a}
+  .tonearm .baseIn{fill:#555c6b}
+  .tonearm .arm{fill:#b9bec8}
+  .tonearm .head{fill:#8a90a0}
+  #deckA .tonearm .baseIn{fill:var(--video)}
+  #deckB .tonearm .baseIn{fill:var(--music)}
+
   .deckTime{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:center}
   .deckTransport{display:flex;gap:8px;justify-content:center}
   .deckTransport button{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
@@ -605,12 +636,30 @@
         <button class="deckLoad" data-deck="A">＋ Load track</button>
       </div>
       <div class="deckName" id="nameA">— empty —</div>
-      <canvas class="wave" id="waveA" height="70"></canvas>
+
+      <div class="turntable" data-deck="A">
+        <div class="platter" id="platterA">
+          <div class="vinyl">
+            <span class="groove g1"></span><span class="groove g2"></span>
+            <span class="groove g3"></span><span class="groove g4"></span>
+            <div class="label" id="labelA"><span class="labelIc">♪</span></div>
+            <div class="spindle"></div>
+          </div>
+        </div>
+        <svg class="tonearm" id="tonearmA" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="base" cx="100" cy="20" r="11"/>
+          <circle class="baseIn" cx="100" cy="20" r="4"/>
+          <rect class="arm" x="97" y="20" width="6" height="70" rx="3"/>
+          <rect class="head" x="92" y="86" width="16" height="12" rx="3"/>
+        </svg>
+      </div>
+
+      <canvas class="wave" id="waveA" height="46"></canvas>
       <div class="deckTime"><span id="curA">0:00</span> / <span id="durA">0:00</span> · <span id="bpmA">—</span></div>
       <div class="deckTransport">
         <button class="cueBtn" data-deck="A" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="A" title="Play/Pause">▶</button>
-        <button class="loopBtn" data-deck="A" title="Loop 4 beats">LOOP</button>
+        <button class="loopBtn" data-deck="A" title="Loop 4 beats">⟲</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="A" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoAV">100%</span></label>
@@ -644,12 +693,30 @@
         <button class="deckLoad" data-deck="B">＋ Load track</button>
       </div>
       <div class="deckName" id="nameB">— empty —</div>
-      <canvas class="wave" id="waveB" height="70"></canvas>
+
+      <div class="turntable" data-deck="B">
+        <div class="platter" id="platterB">
+          <div class="vinyl">
+            <span class="groove g1"></span><span class="groove g2"></span>
+            <span class="groove g3"></span><span class="groove g4"></span>
+            <div class="label" id="labelB"><span class="labelIc">♪</span></div>
+            <div class="spindle"></div>
+          </div>
+        </div>
+        <svg class="tonearm" id="tonearmB" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="base" cx="100" cy="20" r="11"/>
+          <circle class="baseIn" cx="100" cy="20" r="4"/>
+          <rect class="arm" x="97" y="20" width="6" height="70" rx="3"/>
+          <rect class="head" x="92" y="86" width="16" height="12" rx="3"/>
+        </svg>
+      </div>
+
+      <canvas class="wave" id="waveB" height="46"></canvas>
       <div class="deckTime"><span id="curB">0:00</span> / <span id="durB">0:00</span> · <span id="bpmB">—</span></div>
       <div class="deckTransport">
         <button class="cueBtn" data-deck="B" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="B" title="Play/Pause">▶</button>
-        <button class="loopBtn" data-deck="B" title="Loop 4 beats">LOOP</button>
+        <button class="loopBtn" data-deck="B" title="Loop 4 beats">⟲</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="B" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoBV">100%</span></label>
@@ -1651,7 +1718,20 @@ async function djLoad(deckId, rec){
   $('#dur'+deckId).textContent=fmtDur(d.dur);
   $('#cur'+deckId).textContent='0:00';
   $('#bpm'+deckId).textContent=d.bpm?Math.round(d.bpm)+' BPM':'— BPM';
+  const label=$('#label'+deckId);
+  if(label){ label.innerHTML = rec.thumb ? `<img src="${rec.thumb}">` : '<span class="labelIc">♪</span>'; }
   drawWave(deckId);
+}
+function djSetSpin(deckId, on){
+  const platter=$('#platter'+deckId);
+  const tt=document.querySelector('.turntable[data-deck="'+deckId+'"]');
+  if(platter) platter.classList.toggle('spin', on);
+  if(tt) tt.classList.toggle('playing', on);
+  djSyncSpinSpeed(deckId);
+}
+function djSyncSpinSpeed(deckId){
+  const d=decks[deckId], v=$('#platter'+deckId)?.querySelector('.vinyl');
+  if(v){ v.style.animationDuration=(2/(d.rate||1))+'s'; }
 }
 
 function djStartSource(d, when, offset){
@@ -1669,6 +1749,7 @@ function djPlay(deckId){
   d.startedAt=djCtx.currentTime;
   d.playing=true;
   $('#deck'+deckId+' .playBtn').textContent='⏸';
+  djSetSpin(deckId, true);
   djTick(deckId);
 }
 function djPause(deckId){
@@ -1677,6 +1758,7 @@ function djPause(deckId){
   try{ d.source.stop(); }catch(_){}
   d.source=null; d.playing=false;
   $('#deck'+deckId+' .playBtn').textContent='▶';
+  djSetSpin(deckId, false);
   cancelAnimationFrame(d.raf);
 }
 function djStop(deckId){
@@ -1684,6 +1766,7 @@ function djStop(deckId){
   try{ d.source&&d.source.stop(); }catch(_){}
   d.source=null; d.playing=false; d.offset=0;
   cancelAnimationFrame(d.raf);
+  djSetSpin(deckId, false);
   const pb=document.querySelector('#deck'+deckId+' .playBtn'); if(pb)pb.textContent='▶';
 }
 function djTogglePlay(deckId){
@@ -1738,6 +1821,7 @@ function djSetTempo(deckId, rate){
   const d=decks[deckId]; d.rate=rate;
   if(d.source) d.source.playbackRate.setTargetAtTime(rate, djCtx.currentTime, 0.02);
   $('#tempo'+deckId+'V').textContent=Math.round(rate*100)+'%';
+  djSyncSpinSpeed(deckId);
 }
 function applyCrossfade(){
   if(!decks.A) return;
