@@ -52,6 +52,9 @@
   .search{flex:1;background:var(--surface);border:1px solid var(--line);border-radius:11px;
     padding:9px 12px;color:var(--text);font-size:14px;font-family:inherit}
   .search::placeholder{color:var(--muted)}
+  .viewToggle{flex:none;background:var(--surface);border:1px solid var(--line);border-radius:11px;
+    color:var(--muted);padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .viewToggle:hover{border-color:var(--video);color:var(--text)}
 
   /* ---------- library ---------- */
   .lib{flex:1;overflow-y:auto;padding:2px 10px 120px}
@@ -80,6 +83,30 @@
   .info:active{color:var(--video);opacity:1}
   .dl{flex:none;background:none;border:0;color:var(--muted);font-size:15px;padding:8px;cursor:pointer;opacity:.55}
   .dl:active{color:var(--music);opacity:1}
+
+  /* ---------- grid / thumbnail view ---------- */
+  .lib.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:6px 16px 120px}
+  .lib.grid .row{flex-direction:column;align-items:stretch;gap:0;padding:0;background:var(--surface);
+    border:1px solid var(--line);overflow:hidden;position:relative}
+  .lib.grid .row:hover{background:var(--surface-2)}
+  .lib.grid .thumb{width:100%;height:110px;border-radius:0;aspect-ratio:auto}
+  .lib.grid .thumb .ic{font-size:38px}
+  .lib.grid .thumb .badge{font-size:10px;right:5px;bottom:5px;padding:2px 6px}
+  .lib.grid .meta{padding:9px 10px 8px}
+  .lib.grid .meta .t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;font-size:13px;line-height:1.25;min-height:2.5em}
+  .lib.grid .meta .s{font-size:11px}
+  /* action buttons overlay the thumbnail in grid mode */
+  .lib.grid .info,.lib.grid .dl,.lib.grid .edit,.lib.grid .del{
+    position:absolute;top:2px;background:#000b;border-radius:8px;font-size:14px;padding:5px 7px;opacity:0}
+  .lib.grid .info{right:96px} .lib.grid .dl{right:66px}
+  .lib.grid .edit{right:34px} .lib.grid .del{right:4px}
+  .lib.grid .row:hover .info,.lib.grid .row:hover .dl,
+  .lib.grid .row:hover .edit,.lib.grid .row:hover .del{opacity:.85}
+  /* on touch (no hover), keep grid action buttons visible but subtle */
+  @media (hover:none){
+    .lib.grid .info,.lib.grid .dl,.lib.grid .edit,.lib.grid .del{opacity:.7}
+  }
 
   /* details modal */
   .detailsBack{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
@@ -229,9 +256,11 @@
     header,.import,.tools,.pickerBanner,.quickTools{max-width:1080px;margin-left:auto;margin-right:auto;width:100%}
     .import{align-items:center}
     .dropHint{display:inline}
-    .lib{max-width:1080px;margin:0 auto;width:100%;
+    .lib:not(.grid){max-width:1080px;margin:0 auto;width:100%;
          display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
          gap:2px 20px;align-content:start;padding:2px 0 120px}
+    .lib.grid{max-width:1080px;margin:0 auto;width:100%;
+         grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;padding:6px 0 120px}
     .row{cursor:pointer;transition:background .12s}
     .row:hover{background:var(--surface)}
     .row .edit,.row .del,.row .info,.row .dl{opacity:0;transition:opacity .15s}
@@ -289,6 +318,7 @@
     <button data-f="video">Video</button>
   </div>
   <input class="search" id="search" placeholder="Search library…">
+  <button class="viewToggle" id="viewToggle" title="Switch between list and grid view">▦ Grid</button>
 </div>
 
 <div class="pickerBanner" id="pickerBanner" style="display:none">
@@ -382,6 +412,7 @@
           <button data-v="orig" class="on">Original</button>
           <button data-v="720">720p</button>
           <button data-v="480">480p</button>
+          <button data-v="360">360p</button>
         </div>
         <p class="hint">Shrinks file size — handy before sending clips over WhatsApp or slow data.</p>
       </div>
@@ -462,7 +493,7 @@ async function dbAdd(rec){const db=await idb();return new Promise((res,rej)=>{
 async function dbAll(){const db=await idb();return new Promise((res,rej)=>{
   const out=[];const t=db.transaction(STORE,'readonly');
   t.objectStore(STORE).openCursor().onsuccess=e=>{const c=e.target.result;
-    if(c){out.push(c.value);c.continue();}else res(out.sort((a,b)=>b.addedAt-a.addedAt));};
+    if(c){if(!c.value.__setting)out.push(c.value);c.continue();}else res(out.sort((a,b)=>b.addedAt-a.addedAt));};
   t.onerror=()=>rej(t.error);});}
 async function dbGet(id){const db=await idb();return new Promise((res,rej)=>{
   const t=db.transaction(STORE,'readonly');const rq=t.objectStore(STORE).get(id);
@@ -479,6 +510,7 @@ let current=null;          // current record (with blob loaded)
 let curUrl=null;           // object URL in use
 let isVideo=false, playing=false;
 let shuffle=false, repeat='off';  // off | all | one
+let libView='list';               // library view mode: list | grid
 let speed=1;
 const SPEEDS=[1,1.25,1.5,0.75];
 
@@ -556,6 +588,7 @@ function applyView(){
 }
 function renderLib(){
   const lib=$('#lib');
+  lib.classList.toggle('grid', libView==='grid');
   if(!library.length){
     lib.innerHTML=`<div class="empty"><div class="big">🎵</div>
       <b>Your library is empty.</b><br>Import music or videos to get started.<br>
@@ -1029,6 +1062,30 @@ $('#quickTools').addEventListener('click', e=>{
   activatePicker(b.dataset.action);
 });
 
+/* ---------------- library view toggle (list / grid) ---------------- */
+const VIEW_SETTING_ID='__setting_libView';
+async function loadViewPref(){
+  try{
+    const rec=await dbGet(VIEW_SETTING_ID);
+    if(rec && rec.value) libView=rec.value;
+  }catch(_){}
+  applyLibViewMode();
+}
+async function saveViewPref(){
+  try{ await dbAdd({id:VIEW_SETTING_ID, value:libView, __setting:true}); }catch(_){}
+}
+function applyLibViewMode(){
+  const lib=$('#lib');
+  lib.classList.toggle('grid', libView==='grid');
+  const btn=$('#viewToggle');
+  // button shows the view you'll switch TO
+  btn.textContent = libView==='grid' ? '☰ List' : '▦ Grid';
+}
+$('#viewToggle').addEventListener('click', ()=>{
+  libView = libView==='grid' ? 'list' : 'grid';
+  applyLibViewMode(); saveViewPref();
+});
+
 /* ---------------- details view + download ---------------- */
 function fmtDate(ts){
   if(!ts) return '—';
@@ -1077,6 +1134,7 @@ async function downloadItem(id){
 (async function init(){
   initPickerFromURL();
   await refresh(); await updateStorage();
+  await loadViewPref();
   if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
