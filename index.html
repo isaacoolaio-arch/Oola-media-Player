@@ -382,6 +382,8 @@
     border-radius:10px;padding:9px 12px;font-size:12px;font-weight:700;cursor:pointer}
   .deckTransport .big{background:linear-gradient(135deg,var(--video),#8af0e2);color:#062622;border:0;padding:9px 20px;font-size:16px}
   .deckTransport .cueBtn.on,.deckTransport .loopBtn.on{border-color:var(--music);color:var(--music)}
+  .deckTransport .fxToggle{font-size:11px;letter-spacing:.06em}
+  .deckTransport .fxToggle.on{border-color:var(--video);color:var(--video)}
   .deckCtl label{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
   .deckCtl input[type=range]{flex:1}
   .tempoV{width:42px;text-align:right;font-variant-numeric:tabular-nums}
@@ -670,18 +672,21 @@
         <button class="cueBtn" data-deck="A" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="A" title="Play/Pause">▶</button>
         <button class="loopBtn" data-deck="A" title="Loop 4 beats">⟲</button>
+        <button class="fxToggle" data-deck="A" title="Show/hide effects">FX</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="A" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoAV">100%</span></label>
       </div>
-      <div class="deckEq">
-        <div class="eqKnob"><input type="range" class="eqHi" data-deck="A" min="-24" max="12" step="1" value="0"><span>HI</span></div>
-        <div class="eqKnob"><input type="range" class="eqMid" data-deck="A" min="-24" max="12" step="1" value="0"><span>MID</span></div>
-        <div class="eqKnob"><input type="range" class="eqLo" data-deck="A" min="-24" max="12" step="1" value="0"><span>LOW</span></div>
-        <div class="eqKnob"><input type="range" class="fxFilter" data-deck="A" min="-1" max="1" step="0.02" value="0"><span>FILTER</span></div>
-        <div class="eqKnob"><input type="range" class="fxEcho" data-deck="A" min="0" max="0.8" step="0.05" value="0"><span>ECHO</span></div>
+      <div class="deckFx" id="deckFxA" style="display:none">
+        <div class="deckEq">
+          <div class="eqKnob"><input type="range" class="eqHi" data-deck="A" min="-24" max="12" step="1" value="0"><span>HI</span></div>
+          <div class="eqKnob"><input type="range" class="eqMid" data-deck="A" min="-24" max="12" step="1" value="0"><span>MID</span></div>
+          <div class="eqKnob"><input type="range" class="eqLo" data-deck="A" min="-24" max="12" step="1" value="0"><span>LOW</span></div>
+          <div class="eqKnob"><input type="range" class="fxFilter" data-deck="A" min="-1" max="1" step="0.02" value="0"><span>FILTER</span></div>
+          <div class="eqKnob"><input type="range" class="fxEcho" data-deck="A" min="0" max="0.8" step="0.05" value="0"><span>ECHO</span></div>
+        </div>
+        <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="A" min="0" max="1" step="0.02" value="1"></div>
       </div>
-      <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="A" min="0" max="1" step="0.02" value="1"></div>
     </div>
 
     <!-- CENTER MIXER -->
@@ -728,18 +733,22 @@
         <button class="cueBtn" data-deck="B" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="B" title="Play/Pause">▶</button>
         <button class="loopBtn" data-deck="B" title="Loop 4 beats">⟲</button>
+        <button class="fxToggle" data-deck="B" title="Show/hide effects">FX</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="B" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoBV">100%</span></label>
       </div>
-      <div class="deckEq">
-        <div class="eqKnob"><input type="range" class="eqHi" data-deck="B" min="-24" max="12" step="1" value="0"><span>HI</span></div>
-        <div class="eqKnob"><input type="range" class="eqMid" data-deck="B" min="-24" max="12" step="1" value="0"><span>MID</span></div>
-        <div class="eqKnob"><input type="range" class="eqLo" data-deck="B" min="-24" max="12" step="1" value="0"><span>LOW</span></div>
-        <div class="eqKnob"><input type="range" class="fxFilter" data-deck="B" min="-1" max="1" step="0.02" value="0"><span>FILTER</span></div>
-        <div class="eqKnob"><input type="range" class="fxEcho" data-deck="B" min="0" max="0.8" step="0.05" value="0"><span>ECHO</span></div>
+      <div class="deckFx" id="deckFxB" style="display:none">
+        <div class="deckEq">
+          <div class="eqKnob"><input type="range" class="eqHi" data-deck="B" min="-24" max="12" step="1" value="0"><span>HI</span></div>
+          <div class="eqKnob"><input type="range" class="eqMid" data-deck="B" min="-24" max="12" step="1" value="0"><span>MID</span></div>
+          <div class="eqKnob"><input type="range" class="eqLo" data-deck="B" min="-24" max="12" step="1" value="0"><span>LOW</span></div>
+          <div class="eqKnob"><input type="range" class="fxFilter" data-deck="B" min="-1" max="1" step="0.02" value="0"><span>FILTER</span></div>
+          <div class="eqKnob"><input type="range" class="fxEcho" data-deck="B" min="0" max="0.8" step="0.05" value="0"><span>ECHO</span></div>
+        </div>
+        <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="B" min="0" max="1" step="0.02" value="1"></div>
       </div>
-      <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="B" min="0" max="1" step="0.02" value="1"></div>
+    </div>
     </div>
   </div>
 
@@ -1965,14 +1974,20 @@ function initDjUI(){
   $('#djPickerClose').addEventListener('click',()=>$('#djPicker').style.display='none');
   $('#djPickerSearch').addEventListener('input',e=>renderDjPicker(e.target.value));
   setupScratch('A'); setupScratch('B');
+  document.querySelectorAll('.fxToggle').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.deck, panel=$('#deckFx'+id);
+    const showing=panel.style.display!=='none';
+    panel.style.display=showing?'none':'block';
+    b.classList.toggle('on', !showing);
+  }));
 }
 
-/* ---- drag-to-scratch on the vinyl ---- */
+/* ---- drag-to-scratch on the vinyl (audible scrubbing) ---- */
 function setupScratch(deckId){
   const platter=$('#platter'+deckId);
   const vinyl=platter?.querySelector('.vinyl');
   if(!vinyl) return;
-  let dragging=false, lastAngle=0, accum=0, wasPlaying=false, manualRot=0;
+  let dragging=false, lastAngle=0, wasPlaying=false, manualRot=0, scrubPos=0;
 
   function angleFrom(e){
     const r=platter.getBoundingClientRect();
@@ -1985,40 +2000,42 @@ function setupScratch(deckId){
     e.preventDefault();
     dragging=true; wasPlaying=d.playing;
     platter.classList.add('dragging');
-    lastAngle=angleFrom(e); accum=0;
-    // read current visual rotation to continue from it
-    manualRot = djCurrentPos(d)/ (60/ (d.bpm||120)) * 0; // keep simple; start from 0 delta
-    // if playing, we keep audio going but will seek on move
+    lastAngle=angleFrom(e);
+    scrubPos=djCurrentPos(d);
+    // pause the normal playback loop while scrubbing; we drive audio manually
+    if(d.playing){ try{ d.source.stop(); }catch(_){} d.source=null; d.playing=false; cancelAnimationFrame(d.raf); }
   }
   let lastSeek=0;
   function move(e){
     if(!dragging) return;
+    const d=decks[deckId];
     const a=angleFrom(e);
     let delta=a-lastAngle;
     if(delta>Math.PI) delta-=2*Math.PI;
     if(delta<-Math.PI) delta+=2*Math.PI;
-    lastAngle=a; accum+=delta;
-    // rotate vinyl visually to follow finger (always, smooth)
+    lastAngle=a;
     manualRot += delta*180/Math.PI;
     vinyl.style.transform='rotate('+manualRot+'deg)';
-    // throttle actual audio seeking to ~40ms to avoid crackle
-    const now=performance.now();
-    if(now-lastSeek<40) return;
-    lastSeek=now;
+    // move scrub position with the finger
     const secPerTurn=1.8;
-    const deltaTime=(accum/(2*Math.PI))*secPerTurn;
-    accum=0;
-    const d2=decks[deckId];
-    djSeek(deckId, djCurrentPos(d2)+deltaTime);
+    scrubPos += (delta/(2*Math.PI))*secPerTurn;
+    scrubPos=Math.max(0, Math.min(d.dur-0.05, scrubPos));
+    $('#cur'+deckId).textContent=fmtDur(scrubPos);
+    drawWave(deckId, scrubPos);
+    // play a short audible grain at the new position (throttled) so you HEAR the scrub
+    const now=performance.now();
+    if(now-lastSeek<55) return;
+    lastSeek=now;
+    playScrubGrain(deckId, scrubPos, delta);
   }
   function up(){
     if(!dragging) return;
     dragging=false;
     platter.classList.remove('dragging');
     const d=decks[deckId];
-    // resume normal spin transform handoff
     vinyl.style.transform='';
-    if(wasPlaying && !d.playing){ djPlay(deckId); }
+    d.offset=scrubPos;
+    if(wasPlaying){ djPlay(deckId); }   // resume normal playback from where we left off
   }
   vinyl.addEventListener('mousedown',down);
   window.addEventListener('mousemove',move);
@@ -2026,6 +2043,24 @@ function setupScratch(deckId){
   vinyl.addEventListener('touchstart',down,{passive:false});
   window.addEventListener('touchmove',move,{passive:false});
   window.addEventListener('touchend',up);
+}
+
+// play a short "grain" of audio at a position, with playback rate reflecting scratch speed/direction
+let scrubSources={A:null,B:null};
+function playScrubGrain(deckId, pos, delta){
+  const d=decks[deckId]; if(!d.buffer) return;
+  // stop previous grain
+  try{ scrubSources[deckId] && scrubSources[deckId].stop(); }catch(_){}
+  const src=djCtx.createBufferSource();
+  src.buffer=d.buffer;
+  // rate proportional to how fast you're dragging; direction from delta sign
+  const speed=Math.min(2.5, Math.max(0.15, Math.abs(delta)*8));
+  src.playbackRate.value=speed;
+  src.connect(d.vol);
+  const startAt=Math.max(0, Math.min(d.dur-0.06, pos));
+  const grain=0.12; // 120ms grain
+  try{ src.start(0, startAt, grain); }catch(_){}
+  scrubSources[deckId]=src;
 }
 
 /* ---------------- init ---------------- */
