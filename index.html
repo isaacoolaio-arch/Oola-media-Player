@@ -422,36 +422,30 @@
   .djPickRow .badge{font-size:8px;font-weight:700;color:var(--music);flex:none}
 
   /* ---- sampler ---- */
-  .samplerBar{max-width:1120px;margin:14px auto 0;width:100%;background:var(--surface);
-    border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
-  .samplerHead{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
-  .samplerTitle{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--muted)}
-  .samplerHint{font-size:11px;color:var(--muted)}
-  .samplerVolWrap{margin-left:auto;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
-  .samplerVolWrap input{width:110px}
-  .pads{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
-  .pad{position:relative;height:44px;border-radius:9px;border:1px solid var(--line);
+  /* per-deck sampler pads (4 pads under each deck) */
+  .deckPads{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .pad{position:relative;height:40px;border-radius:9px;border:1px solid var(--line);
     background:var(--surface-2);color:var(--text);cursor:pointer;display:flex;flex-direction:column;
     align-items:center;justify-content:center;gap:1px;font-weight:600;
     transition:transform .05s, box-shadow .1s;user-select:none;overflow:hidden;padding:2px}
   .pad .padName{font-size:11px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;line-height:1.1}
   .pad .padNum{font-size:8px;color:var(--muted);line-height:1}
-  .pad:nth-child(odd){box-shadow:inset 0 0 0 1px var(--video-dim,#57d9c633)}
-  .pad:nth-child(even){box-shadow:inset 0 0 0 1px var(--music-dim,#ff5c7a33)}
+  #padsA .pad{box-shadow:inset 0 0 0 1px var(--video-dim,#57d9c633)}
+  #padsB .pad{box-shadow:inset 0 0 0 1px var(--music-dim,#ff5c7a33)}
   .pad.custom .padName{color:var(--music)}
-  .pad.hit{transform:scale(.94)}
-  .pad.hit:nth-child(odd){box-shadow:0 0 16px var(--video)}
-  .pad.hit:nth-child(even){box-shadow:0 0 16px var(--music)}
-  .samplerBar{padding:10px 12px}
+  .pad.hit{transform:scale(.92)}
+  #padsA .pad.hit{box-shadow:0 0 16px var(--video)}
+  #padsB .pad.hit{box-shadow:0 0 16px var(--music)}
   .djTopBtn{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
     border-radius:16px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:12px}
   .djTopBtn.on{border-color:var(--music);color:var(--music)}
+  .samplerVolWrap{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;margin-left:12px}
+  .samplerVolWrap input{width:90px}
   @media(max-width:820px){
     .djDecks{grid-template-columns:1fr;gap:12px}
     .djCenter{padding-top:0;flex-direction:row;flex-wrap:wrap;order:3}
     .masterMeter{display:none}
     .crossWrap{min-width:200px}
-    .pads{grid-template-columns:repeat(4,1fr)}
   }
 </style>
 </head>
@@ -715,6 +709,7 @@
         </div>
         <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="A" min="0" max="1" step="0.02" value="1"></div>
       </div>
+      <div class="deckPads" id="padsA" style="display:none"></div>
     </div>
 
     <!-- CENTER MIXER -->
@@ -776,18 +771,12 @@
         </div>
         <div class="deckVol"><span>VOL</span><input type="range" class="vol" data-deck="B" min="0" max="1" step="0.02" value="1"></div>
       </div>
+      <div class="deckPads" id="padsB" style="display:none"></div>
     </div>
   </div>
 
-  <!-- SAMPLER -->
-  <div class="samplerBar" id="samplerBar" style="display:none">
-    <div class="samplerHead">
-      <span class="samplerTitle">SAMPLER</span>
-      <span class="samplerHint">Tap to fire · right-click / long-press a pad to assign your own clip</span>
-      <label class="samplerVolWrap">VOL <input type="range" id="samplerVol" min="0" max="1.5" step="0.05" value="0.9"></label>
-    </div>
-    <div class="pads" id="pads"></div>
-  </div>
+  <!-- sampler volume (compact, shown in top bar when sampler active) -->
+  <input type="range" id="samplerVol" min="0" max="1.5" step="0.05" value="0.9" style="display:none">
 
   <!-- DJ track picker overlay -->
   <div class="djPicker" id="djPicker" style="display:none">
@@ -2022,9 +2011,10 @@ function initDjUI(){
   }));
   initSampler();
   $('#samplerToggle').addEventListener('click', ()=>{
-    const bar=$('#samplerBar');
-    const showing=bar.style.display!=='none';
-    bar.style.display=showing?'none':'block';
+    const a=$('#padsA'), b=$('#padsB');
+    const showing=a.style.display!=='none';
+    a.style.display=showing?'none':'grid';
+    b.style.display=showing?'none':'grid';
     $('#samplerToggle').classList.toggle('on', !showing);
   });
 }
@@ -2052,8 +2042,9 @@ let samplerPickTarget=null;
 function initSampler(){
   // Build the pad UI immediately — NO audio context needed yet (that would
   // be blocked before a user gesture and abort pad rendering).
-  const pads=$('#pads'); if(!pads) return; pads.innerHTML='';
-  SAMPLE_DEFS.forEach((def,i)=>{
+  const padsA=$('#padsA'), padsB=$('#padsB'); if(!padsA||!padsB) return;
+  padsA.innerHTML=''; padsB.innerHTML='';
+  const makePad=(def,i,container)=>{
     const pad=document.createElement('div'); pad.className='pad'; pad.dataset.i=i;
     pad.innerHTML=`<span class="padName">${def.name}</span><span class="padNum">${i+1}</span>`;
     pad.addEventListener('click',()=>firePad(i));
@@ -2061,8 +2052,9 @@ function initSampler(){
     let lpTimer=null;
     pad.addEventListener('touchstart',e=>{ lpTimer=setTimeout(()=>{ openSamplerPicker(i); lpTimer=null; },550); },{passive:true});
     pad.addEventListener('touchend',e=>{ if(lpTimer){ clearTimeout(lpTimer); firePad(i);} });
-    pads.appendChild(pad);
-  });
+    container.appendChild(pad);
+  };
+  SAMPLE_DEFS.forEach((def,i)=>{ makePad(def,i, i<4?padsA:padsB); });
   const sv=$('#samplerVol');
   if(sv) sv.addEventListener('input',e=>{ ensureSamplerGain(); if(samplerGain) samplerGain.gain.setTargetAtTime(+e.target.value, djCtx.currentTime,0.02); });
   document.addEventListener('keydown',e=>{
