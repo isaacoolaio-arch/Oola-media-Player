@@ -171,6 +171,9 @@
   .editRow{display:flex;align-items:center;gap:10px;margin:10px 0}
   .editRow span:first-child{width:44px;font-size:12px;color:var(--muted);flex:none}
   .editRow input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;background:var(--surface-2);outline:none}
+  .previewSel{margin-top:6px;background:var(--surface-2);border:1px solid var(--video);color:var(--video);
+    border-radius:12px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer}
+  .previewSel.playing{background:var(--video);color:#062622}
   .editRow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--video);cursor:pointer}
   .editRow input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:var(--video)}
   .editRow span.mono{flex:none;width:44px;font-size:12px;color:var(--muted)}
@@ -599,7 +602,8 @@
       <div class="editPanel" id="panelTrim">
         <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5"><span id="editStartLbl" class="mono">0:00</span></div>
         <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5"><span id="editEndLbl" class="mono">0:00</span></div>
-        <p class="hint">Cuts the clip to the selected range and re-encodes it as MP4. Drag the sliders — the preview seeks with you.</p>
+        <button class="previewSel" id="previewSel">▶ Preview selection</button>
+        <p class="hint">Cuts the clip to the selected range and re-encodes it as MP4. Drag the sliders — the preview seeks with you. Tap <b>Preview selection</b> to hear the trimmed part before applying.</p>
       </div>
 
       <div class="editPanel" id="panelCompress" style="display:none">
@@ -1426,6 +1430,7 @@ async function openEdit(id){
 function activeEditPreview(){ return $('#editPreviewVideo').style.display!=='none' ? $('#editPreviewVideo') : $('#editPreviewAudio'); }
 function closeEdit(){
   if(editBusy) return;
+  if(typeof stopPreviewSel==='function') stopPreviewSel();
   $('#editSheet').classList.remove('show');
   ['#editPreviewVideo','#editPreviewAudio'].forEach(s=>{const el=$(s); el.pause();});
   if(editPreviewUrl){URL.revokeObjectURL(editPreviewUrl); editPreviewUrl=null;}
@@ -1451,6 +1456,33 @@ $('#editStart').addEventListener('input',e=>{
 $('#editEnd').addEventListener('input',e=>{
   $('#editEndLbl').textContent=fmtDur(+e.target.value);
   try{activeEditPreview().currentTime=+e.target.value;}catch(_){}
+});
+
+/* preview the trimmed Start->End range before applying */
+let previewRafId=null;
+function stopPreviewSel(){
+  const el=activeEditPreview();
+  try{ el.pause(); }catch(_){}
+  cancelAnimationFrame(previewRafId); previewRafId=null;
+  $('#previewSel').classList.remove('playing');
+  $('#previewSel').textContent='▶ Preview selection';
+}
+$('#previewSel').addEventListener('click', ()=>{
+  const el=activeEditPreview();
+  const start=+$('#editStart').value, end=+$('#editEnd').value;
+  if(end<=start){ alert('Set the End slider after the Start slider first.'); return; }
+  if($('#previewSel').classList.contains('playing')){ stopPreviewSel(); return; }
+  el.currentTime=start;
+  el.play().then(()=>{
+    $('#previewSel').classList.add('playing');
+    $('#previewSel').textContent='■ Stop preview';
+    const watch=()=>{
+      if(el.paused){ stopPreviewSel(); return; }
+      if(el.currentTime>=end){ stopPreviewSel(); return; }
+      previewRafId=requestAnimationFrame(watch);
+    };
+    previewRafId=requestAnimationFrame(watch);
+  }).catch(()=>{});
 });
 function segHandler(containerId){
   const c=document.getElementById(containerId); if(!c) return;
