@@ -76,6 +76,25 @@
   .del:active{color:var(--danger);opacity:1}
   .edit{flex:none;background:none;border:0;color:var(--muted);font-size:15px;padding:8px;cursor:pointer;opacity:.55}
   .edit:active{color:var(--video);opacity:1}
+  .info{flex:none;background:none;border:0;color:var(--muted);font-size:16px;padding:8px;cursor:pointer;opacity:.55}
+  .info:active{color:var(--video);opacity:1}
+  .dl{flex:none;background:none;border:0;color:var(--muted);font-size:15px;padding:8px;cursor:pointer;opacity:.55}
+  .dl:active{color:var(--music);opacity:1}
+
+  /* details modal */
+  .detailsBack{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:70;padding:20px}
+  .detailsBack.show{display:flex}
+  .detailsCard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+    padding:20px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto}
+  .detailsCard h3{margin:0 0 14px;font-size:16px;color:var(--text);word-break:break-word}
+  .detailsRow{display:flex;justify-content:space-between;gap:16px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .detailsRow:last-of-type{border-bottom:0}
+  .detailsRow span:first-child{color:var(--muted);flex:none}
+  .detailsRow span:last-child{color:var(--text);text-align:right;word-break:break-word}
+  .detailsActions{display:flex;gap:8px;margin-top:16px}
+  .detailsActions button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer}
+  .detailsActions .primary{background:linear-gradient(135deg,var(--music),#ff8fa3);border:0;color:#3a0d16}
 
   /* ---------- drag & drop ---------- */
   .dropHint{display:none;font-size:12px;color:var(--muted);align-self:center;white-space:nowrap}
@@ -215,8 +234,8 @@
          gap:2px 20px;align-content:start;padding:2px 0 120px}
     .row{cursor:pointer;transition:background .12s}
     .row:hover{background:var(--surface)}
-    .row .edit,.row .del{opacity:0;transition:opacity .15s}
-    .row:hover .edit,.row:hover .del{opacity:.7}
+    .row .edit,.row .del,.row .info,.row .dl{opacity:0;transition:opacity .15s}
+    .row:hover .edit,.row:hover .del,.row:hover .info,.row:hover .dl{opacity:.7}
     .mini{left:50%;right:auto;transform:translateX(-50%);width:min(680px,calc(100% - 32px))}
     .full .stage{max-width:1120px;margin:0 auto}
     .full .seek,.full .transport,.full .extra{max-width:700px;margin-left:auto;margin-right:auto}
@@ -401,6 +420,23 @@
 <!-- single reusable audio element (kept for the analyser graph) -->
 <audio id="audio"></audio>
 
+<!-- details modal -->
+<div class="detailsBack" id="detailsBack">
+  <div class="detailsCard">
+    <h3 id="dTitle">—</h3>
+    <div class="detailsRow"><span>Type</span><span id="dType">—</span></div>
+    <div class="detailsRow"><span>Format</span><span id="dFormat">—</span></div>
+    <div class="detailsRow"><span>Duration</span><span id="dDur">—</span></div>
+    <div class="detailsRow"><span>Size</span><span id="dSize">—</span></div>
+    <div class="detailsRow"><span>Added</span><span id="dAdded">—</span></div>
+    <div class="detailsRow"><span>File name</span><span id="dName">—</span></div>
+    <div class="detailsActions">
+      <button class="primary" id="dDownload">⬇️ Download</button>
+      <button id="dClose">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* =========================================================================
    Oola Play — fully offline media player
@@ -538,10 +574,12 @@ function renderLib(){
       </div>
       <div class="meta"><div class="t">${escapeHtml(m.title)}</div>
         <div class="s">${fmtDur(m.duration)} · ${fmtSize(m.size)}</div></div>
+      <button class="info" data-id="${id}" title="Details">ⓘ</button>
+      <button class="dl" data-id="${id}" title="Download to this device">⬇️</button>
       <button class="edit" data-id="${id}" title="Edit">✂️</button>
       <button class="del" data-id="${id}" title="Delete">🗑</button>`;
     row.addEventListener('click',ev=>{
-      if(ev.target.closest('.del')||ev.target.closest('.edit'))return;
+      if(ev.target.closest('.del')||ev.target.closest('.edit')||ev.target.closest('.info')||ev.target.closest('.dl'))return;
       if(pickerAction){
         const action=pickerAction;
         pickerAction=null;
@@ -550,6 +588,12 @@ function renderLib(){
       } else {
         playId(id);
       }
+    });
+    row.querySelector('.info').addEventListener('click', ev=>{
+      ev.stopPropagation(); showDetails(id);
+    });
+    row.querySelector('.dl').addEventListener('click', ev=>{
+      ev.stopPropagation(); downloadItem(id);
     });
     row.querySelector('.edit').addEventListener('click', ev=>{
       ev.stopPropagation(); openEdit(id);
@@ -937,7 +981,8 @@ document.addEventListener('keydown', e=>{
   if(e.code==='Space' && $('#full').classList.contains('show') && !$('#editSheet').classList.contains('show')){
     e.preventDefault(); togglePlay();
   } else if(e.code==='Escape'){
-    if($('#editSheet').classList.contains('show')) closeEdit();
+    if($('#detailsBack').classList.contains('show')) closeDetails();
+    else if($('#editSheet').classList.contains('show')) closeEdit();
     else if($('#full').classList.contains('show')) closeFull();
   }
 });
@@ -983,6 +1028,50 @@ $('#quickTools').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   activatePicker(b.dataset.action);
 });
+
+/* ---------------- details view + download ---------------- */
+function fmtDate(ts){
+  if(!ts) return '—';
+  try{ return new Date(ts).toLocaleString(undefined,
+    {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  catch(_){ return new Date(ts).toLocaleString(); }
+}
+function formatLabel(rec){
+  const mime=rec.mime||'';
+  const fromMime=mime.split('/')[1];
+  const fromName=(rec.name||'').split('.').pop();
+  const ext=(fromName && fromName.length<=5 ? fromName : fromMime||'').toUpperCase();
+  return ext ? ext + (mime?` (${mime})`:'') : (mime||'Unknown');
+}
+let detailsId=null;
+async function showDetails(id){
+  const rec=await dbGet(id); if(!rec) return;
+  detailsId=id;
+  $('#dTitle').textContent=rec.title||rec.name||'Untitled';
+  $('#dType').textContent=rec.type==='video'?'Video':'Audio';
+  $('#dFormat').textContent=formatLabel(rec);
+  $('#dDur').textContent=fmtDur(rec.duration);
+  $('#dSize').textContent=fmtSize(rec.size);
+  $('#dAdded').textContent=fmtDate(rec.addedAt);
+  $('#dName').textContent=rec.name||'—';
+  $('#detailsBack').classList.add('show');
+}
+function closeDetails(){ $('#detailsBack').classList.remove('show'); detailsId=null; }
+$('#dClose').addEventListener('click', closeDetails);
+$('#detailsBack').addEventListener('click', e=>{ if(e.target.id==='detailsBack') closeDetails(); });
+$('#dDownload').addEventListener('click', ()=>{ if(detailsId) downloadItem(detailsId); });
+
+async function downloadItem(id){
+  const rec=await dbGet(id); if(!rec) return;
+  const ext = rec.type==='audio' ? 'mp3' : 'mp4';
+  let fname = rec.name || (rec.title||'oola-play')+'.'+ext;
+  if(!/\.[a-z0-9]{2,5}$/i.test(fname)) fname += '.'+ext;
+  const url=URL.createObjectURL(rec.blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
 
 /* ---------------- init ---------------- */
 (async function init(){
