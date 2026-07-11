@@ -84,6 +84,13 @@
     font-size:22px;font-weight:700;color:var(--video);text-align:center;padding:40px}
   .dropOverlay.show{display:flex}
 
+  .pickerBanner{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin:0 16px 10px;padding:12px 16px;border-radius:var(--r);
+    background:linear-gradient(135deg,#1c1420,#141a1f);border:1px solid var(--video);
+    color:var(--text);font-size:14px;font-weight:600}
+  .pickerBanner button{flex:none;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    padding:7px 12px;border-radius:10px;font-size:12.5px;cursor:pointer}
+
   /* ---------- editor sheet ---------- */
   .editSheet{gap:0;overflow-y:auto}
   .toolTabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;-webkit-overflow-scrolling:touch}
@@ -193,7 +200,7 @@
 
   /* ---------- desktop / wide screens ---------- */
   @media(min-width:820px){
-    header,.import,.tools{max-width:1080px;margin-left:auto;margin-right:auto;width:100%}
+    header,.import,.tools,.pickerBanner{max-width:1080px;margin-left:auto;margin-right:auto;width:100%}
     .import{align-items:center}
     .dropHint{display:inline}
     .lib{max-width:1080px;margin:0 auto;width:100%;
@@ -246,6 +253,11 @@
     <button data-f="video">Video</button>
   </div>
   <input class="search" id="search" placeholder="Search library…">
+</div>
+
+<div class="pickerBanner" id="pickerBanner" style="display:none">
+  <span id="pickerBannerText">Choose a file</span>
+  <button id="pickerBannerCancel">Cancel ✕</button>
 </div>
 
 <div class="lib" id="lib"></div>
@@ -513,7 +525,14 @@ function renderLib(){
       <button class="del" data-id="${id}" title="Delete">🗑</button>`;
     row.addEventListener('click',ev=>{
       if(ev.target.closest('.del')||ev.target.closest('.edit'))return;
-      playId(id);
+      if(pickerAction){
+        const action=pickerAction;
+        pickerAction=null;
+        $('#pickerBanner').style.display='none';
+        openEdit(id).then(()=>selectEditTool(action));
+      } else {
+        playId(id);
+      }
     });
     row.querySelector('.edit').addEventListener('click', ev=>{
       ev.stopPropagation(); openEdit(id);
@@ -906,8 +925,38 @@ document.addEventListener('keydown', e=>{
   }
 });
 
+/* ---------------- taskbar / jump-list shortcuts (Trim, Compress, ...) ----------------
+   Right-clicking the installed app's icon in the Windows taskbar (or long-pressing it
+   on Android) shows these as quick actions. Since a shortcut can't know which file you
+   mean, it opens the app in "picker mode": tap any item in your library and it jumps
+   straight into that tool instead of playing it. */
+let pickerAction=null;
+const PICKER_TEXT={
+  trim:'Choose a video to Trim',
+  compress:'Choose a video to Compress',
+  convert:'Choose a video to Fix / Convert',
+  audio:'Choose a file to Extract audio from',
+  rotate:'Choose a video to Rotate',
+  mute:'Choose a video to Mute',
+};
+function initPickerFromURL(){
+  const params=new URLSearchParams(location.search);
+  const action=params.get('action');
+  if(action && PICKER_TEXT[action]){
+    pickerAction=action;
+    $('#pickerBannerText').textContent=PICKER_TEXT[action]+' — tap a file below';
+    $('#pickerBanner').style.display='flex';
+    history.replaceState(null,'',location.pathname);
+  }
+}
+$('#pickerBannerCancel').addEventListener('click', ()=>{
+  pickerAction=null;
+  $('#pickerBanner').style.display='none';
+});
+
 /* ---------------- init ---------------- */
 (async function init(){
+  initPickerFromURL();
   await refresh(); await updateStorage();
   if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();

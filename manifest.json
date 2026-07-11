@@ -10,5 +10,19 @@
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Trim a video", "short_name": "Trim", "description": "Cut a clip to a shorter range",
+      "url": "./index.html?action=trim", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Compress a video", "short_name": "Compress", "description": "Shrink file size for sharing",
+      "url": "./index.html?action=compress", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fix / Convert HEVC", "short_name": "Fix/Convert", "description": "Fix the black-screen HEVC issue",
+      "url": "./index.html?action=convert", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Extract audio", "short_name": "Extract audio", "description": "Save the audio track as MP3",
+      "url": "./index.html?action=audio", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Rotate a video", "short_name": "Rotate", "description": "Fix sideways or upside-down clips",
+      "url": "./index.html?action=rotate", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mute a video", "short_name": "Mute", "description": "Remove the audio track",
+      "url": "./index.html?action=mute", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
   ]
 }

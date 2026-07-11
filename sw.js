@@ -6,7 +6,7 @@
    first time you use Edit — it's NOT downloaded automatically on install, so
    installing/updating the app stays light on data. After that first use it
    works fully offline. */
-const CACHE='oola-play-v5';
+const CACHE='oola-play-v6';
 const FFMPEG_CACHE='oola-play-ffmpeg-v1';
 const SHELL=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
@@ -34,5 +34,5 @@ self.addEventListener('fetch',e=>{
     return;
   }
 
-  e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request)));
+  e.respondWith(caches.match(e.request, {ignoreSearch:true}).then(hit=>hit||fetch(e.request)));
 });
