@@ -783,10 +783,10 @@ async function loadFFmpeg(){
     const f=new FFmpeg();
     f.on('progress', ({progress})=>setEditProgress(progress));
     f.on('log', ({message})=>appendEditLog(message));
-    const base='./ffmpeg/core';
+    const base=new URL('./ffmpeg/core/', location.href).href;
     await f.load({
-      coreURL: await util.toBlobURL(`${base}/ffmpeg-core.js`,'text/javascript'),
-      wasmURL: await util.toBlobURL(`${base}/ffmpeg-core.wasm`,'application/wasm'),
+      coreURL: base+'ffmpeg-core.js',
+      wasmURL: base+'ffmpeg-core.wasm',
     });
     ffmpeg=f;
     setEditStatus('Engine ready.');

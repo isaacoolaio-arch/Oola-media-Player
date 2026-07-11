@@ -15,9 +15,18 @@ const load = async ({ coreURL: _coreURL, wasmURL: _wasmURL, workerURL: _workerUR
     catch {
         if (!_coreURL)
             _coreURL = CORE_URL.replace('/umd/', '/esm/');
-        // when web worker type is `module`.
-        self.createFFmpegCore = (await import(
-        /* webpackIgnore: true */ /* @vite-ignore */ _coreURL)).default;
+        // Oola Play patch: module-type worker can't use importScripts, and the
+        // core file is UMD (not an ES module), so a plain import() fails. Instead
+        // fetch the UMD text and evaluate it into the worker global scope, which
+        // defines self.createFFmpegCore. Works fully same-origin & offline.
+        try {
+            const src = await (await fetch(_coreURL)).text();
+            (0, eval)(src);
+        } catch (err) {
+            // last-resort: try the original ES import path
+            self.createFFmpegCore = (await import(
+            /* webpackIgnore: true */ /* @vite-ignore */ _coreURL)).default;
+        }
         if (!self.createFFmpegCore) {
             throw ERROR_IMPORT_FAILURE;
         }
