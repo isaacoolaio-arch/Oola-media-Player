@@ -223,9 +223,9 @@
   .full .top .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em;flex:1}
   .npToggle{font-size:18px!important;opacity:.6}
   .npToggle.on{opacity:1;color:var(--video)!important}
-  .npBar{margin:0 auto 10px;max-width:1120px;width:100%;text-align:center;
-    font-size:15px;font-weight:600;color:var(--text);padding:2px 12px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .npBar{font-size:13.5px;font-weight:600;color:var(--text);
+    max-width:min(60vw,520px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    display:inline-block;vertical-align:middle}
   .npBar.hidden{display:none}
   .stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative;width:100%}
   #video{width:100%;height:100%;max-height:100%;object-fit:contain;border-radius:14px;background:#000;display:none}
@@ -262,7 +262,7 @@
   .transport button.tog{font-size:19px;color:var(--muted)}
   .transport button.tog.on{color:var(--music)}
   .full.vid .transport button.tog.on{color:var(--video)}
-  .extra{display:flex;justify-content:center;gap:14px;margin-top:14px}
+  .extra{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap}
   .extra button{background:var(--surface);border:1px solid var(--line);color:var(--muted);
     border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
   .extra button.on{color:var(--text);border-color:var(--muted)}
@@ -359,7 +359,6 @@
     <span class="lbl" id="fullLbl">Now playing</span>
     <button class="npToggle" id="npToggle" title="Show/hide title">🏷️</button>
   </div>
-  <div class="npBar" id="npBar"><span id="npBarTitle">—</span></div>
   <div class="stage" id="stage">
     <video id="video" playsinline controls></video>
     <div class="novideo" id="noVideo">
@@ -386,6 +385,7 @@
     <button class="tog" id="repeat" title="Repeat">🔁</button>
   </div>
   <div class="extra">
+    <span class="npBar" id="npBar"><span id="npBarTitle">—</span></span>
     <button id="speed">1.0×</button>
   </div>
 </div>
