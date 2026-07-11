@@ -439,6 +439,19 @@
   .djTopBtn{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
     border-radius:16px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:12px}
   .djTopBtn.on{border-color:var(--music);color:var(--music)}
+  .djRec{color:#ff6b6b}
+  .djRec.on{background:#ff5c5c;color:#fff;border-color:#ff5c5c;animation:recPulse 1.2s ease-in-out infinite}
+  @keyframes recPulse{50%{opacity:.55}}
+  .djRecTime{font-variant-numeric:tabular-nums;font-size:13px;font-weight:700;color:#ff6b6b;margin-left:8px}
+  .loopLen{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:6px 4px;font-size:12px;font-weight:700;cursor:pointer}
+  .hotCues{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .hotCue{background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    border-radius:8px;padding:7px;font-size:12px;font-weight:700;cursor:pointer}
+  .hotCue.set{color:var(--text)}
+  #deckA .hotCue.set{border-color:var(--video);color:var(--video)}
+  #deckB .hotCue.set{border-color:var(--music);color:var(--music)}
+  .hotCue.active{box-shadow:0 0 12px currentColor}
   .samplerVolWrap{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px;margin-left:12px}
   .samplerVolWrap input{width:90px}
   @media(max-width:820px){
@@ -658,6 +671,8 @@
     <button id="djClose" title="Close DJ Mode">✕</button>
     <span class="djTitle">🎧 Oola DJ</span>
     <span class="djHint">Load a track on each deck, then mix</span>
+    <button id="djRecBtn" class="djTopBtn djRec" title="Record your mix">● REC</button>
+    <span id="djRecTime" class="djRecTime" style="display:none">00:00</span>
     <button id="samplerToggle" class="djTopBtn" title="Show/hide sampler pads">🎹 Sampler</button>
   </div>
 
@@ -693,8 +708,18 @@
       <div class="deckTransport">
         <button class="cueBtn" data-deck="A" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="A" title="Play/Pause">▶</button>
-        <button class="loopBtn" data-deck="A" title="Loop 4 beats">⟲</button>
+        <button class="loopBtn" data-deck="A" title="Loop">⟲</button>
+        <select class="loopLen" data-deck="A" title="Loop length (beats)">
+          <option value="1">1</option><option value="2">2</option>
+          <option value="4" selected>4</option><option value="8">8</option><option value="16">16</option>
+        </select>
         <button class="fxToggle" data-deck="A" title="Show/hide effects">FX</button>
+      </div>
+      <div class="hotCues" data-deck="A">
+        <button class="hotCue" data-deck="A" data-cue="0">1</button>
+        <button class="hotCue" data-deck="A" data-cue="1">2</button>
+        <button class="hotCue" data-deck="A" data-cue="2">3</button>
+        <button class="hotCue" data-deck="A" data-cue="3">4</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="A" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoAV">100%</span></label>
@@ -755,8 +780,18 @@
       <div class="deckTransport">
         <button class="cueBtn" data-deck="B" title="Cue">CUE</button>
         <button class="playBtn big" data-deck="B" title="Play/Pause">▶</button>
-        <button class="loopBtn" data-deck="B" title="Loop 4 beats">⟲</button>
+        <button class="loopBtn" data-deck="B" title="Loop">⟲</button>
+        <select class="loopLen" data-deck="B" title="Loop length (beats)">
+          <option value="1">1</option><option value="2">2</option>
+          <option value="4" selected>4</option><option value="8">8</option><option value="16">16</option>
+        </select>
         <button class="fxToggle" data-deck="B" title="Show/hide effects">FX</button>
+      </div>
+      <div class="hotCues" data-deck="B">
+        <button class="hotCue" data-deck="B" data-cue="0">1</button>
+        <button class="hotCue" data-deck="B" data-cue="1">2</button>
+        <button class="hotCue" data-deck="B" data-cue="2">3</button>
+        <button class="hotCue" data-deck="B" data-cue="3">4</button>
       </div>
       <div class="deckCtl">
         <label>Tempo <input type="range" class="tempo" data-deck="B" min="0.5" max="1.5" step="0.01" value="1"><span class="tempoV" id="tempoBV">100%</span></label>
@@ -1696,7 +1731,7 @@ async function downloadItem(id){
    -> filter -> dry+echo -> deckGain(crossfade) -> master -> destination.
    Uses AudioBufferSourceNode for precise looping/tempo (playbackRate).
    ============================================================ */
-let djCtx=null, djMaster=null;
+let djCtx=null, djMaster=null, djRecDest=null, djRecorder=null, djRecChunks=[], djRecStart=0, djRecTimer=null;
 const decks={A:null,B:null};
 let djLoadTarget=null;
 
@@ -1704,7 +1739,7 @@ function makeDeck(id){
   return {
     id, buffer:null, source:null, rec:null,
     playing:false, startedAt:0, offset:0, rate:1,
-    loop:false, loopStart:0, loopLen:0, cuePoint:0,
+    loop:false, loopStart:0, loopLen:0, cuePoint:0, hotCues:[null,null,null,null],
     dur:0, bpm:null, raf:null,
     // nodes
     vol:null, lo:null, mid:null, hi:null, lpf:null, hpf:null,
@@ -1719,6 +1754,8 @@ function djEnsureCtx(){
   djCtx=new AC();
   djMaster=djCtx.createGain(); djMaster.gain.value=0.9;
   djMaster.connect(djCtx.destination);
+  // recording tap: master also feeds a MediaStreamDestination for MediaRecorder
+  try{ djRecDest=djCtx.createMediaStreamDestination(); djMaster.connect(djRecDest); }catch(_){ djRecDest=null; }
   decks.A=buildDeckNodes(makeDeck('A'));
   decks.B=buildDeckNodes(makeDeck('B'));
   applyCrossfade();
@@ -1759,6 +1796,7 @@ async function djLoad(deckId, rec){
   catch(e){ alert('Could not decode this file for DJ mode. Try an MP3 or converted MP4/WAV.'); return; }
   d.buffer=audioBuf; d.rec=rec; d.dur=audioBuf.duration; d.offset=0; d.cuePoint=0;
   d.bpm=estimateBPM(audioBuf);
+  resetHotCues(deckId);
   d.peaks=computePeaks(audioBuf, 800);
   $('#name'+deckId).textContent=rec.title;
   $('#dur'+deckId).textContent=fmtDur(d.dur);
@@ -1825,6 +1863,89 @@ function djCue(deckId){
   if(d.playing){ djPause(deckId); d.offset=d.cuePoint; djPlay(deckId); }
   else { d.cuePoint=d.offset; }
 }
+
+/* ---- hot cues: tap empty pad to set, tap set pad to jump ---- */
+function hotCue(deckId, idx){
+  const d=decks[deckId]; if(!d.buffer) return;
+  const btn=document.querySelector('#deck'+deckId+' .hotCue[data-cue="'+idx+'"]');
+  if(d.hotCues[idx]==null){
+    // set at current position
+    d.hotCues[idx]=djCurrentPos(d);
+    btn.classList.add('set');
+  } else {
+    // jump to it (keep playing state)
+    const pos=d.hotCues[idx];
+    if(d.playing){ djPause(deckId); d.offset=pos; djPlay(deckId); }
+    else { d.offset=pos; $('#cur'+deckId).textContent=fmtDur(pos); drawWave(deckId,pos); }
+    btn.classList.add('active'); setTimeout(()=>btn.classList.remove('active'),200);
+  }
+}
+function clearHotCue(deckId, idx){
+  const d=decks[deckId];
+  d.hotCues[idx]=null;
+  const btn=document.querySelector('#deck'+deckId+' .hotCue[data-cue="'+idx+'"]');
+  btn.classList.remove('set');
+}
+// reset hot cues when a new track loads
+function resetHotCues(deckId){
+  const d=decks[deckId]; d.hotCues=[null,null,null,null];
+  document.querySelectorAll('#deck'+deckId+' .hotCue').forEach(b=>b.classList.remove('set','active'));
+}
+
+/* ---- record / export mix ---- */
+function djToggleRecord(){
+  if(djRecorder && djRecorder.state==='recording'){ djStopRecord(); return; }
+  djEnsureCtx();
+  if(!djRecDest){ alert('Recording is not supported in this browser.'); return; }
+  let mime='audio/webm';
+  if(!MediaRecorder.isTypeSupported(mime)){ mime = MediaRecorder.isTypeSupported('audio/ogg')?'audio/ogg':''; }
+  try{
+    djRecorder = mime ? new MediaRecorder(djRecDest.stream,{mimeType:mime}) : new MediaRecorder(djRecDest.stream);
+  }catch(e){ alert('Could not start recording: '+e.message); return; }
+  djRecChunks=[];
+  djRecorder.ondataavailable=e=>{ if(e.data.size>0) djRecChunks.push(e.data); };
+  djRecorder.onstop=saveRecording;
+  djRecorder.start();
+  djRecStart=Date.now();
+  $('#djRecBtn').classList.add('on'); $('#djRecBtn').textContent='■ STOP';
+  $('#djRecTime').style.display='inline'; updateRecTime();
+  djRecTimer=setInterval(updateRecTime,500);
+}
+function updateRecTime(){
+  const s=Math.floor((Date.now()-djRecStart)/1000);
+  const m=String(Math.floor(s/60)).padStart(2,'0'), ss=String(s%60).padStart(2,'0');
+  $('#djRecTime').textContent=m+':'+ss;
+}
+function djStopRecord(){
+  if(!djRecorder||djRecorder.state!=='recording') return;
+  djRecorder.stop();
+  clearInterval(djRecTimer);
+  $('#djRecBtn').classList.remove('on'); $('#djRecBtn').textContent='● REC';
+  $('#djRecTime').style.display='none';
+}
+async function saveRecording(){
+  const blob=new Blob(djRecChunks,{type:djRecChunks[0]?.type||'audio/webm'});
+  djRecChunks=[];
+  if(blob.size<1000){ alert('Recording was empty — play something on a deck while recording.'); return; }
+  // probe duration for the library record
+  let duration=0; try{ duration=await probeAudio(blob); }catch(_){}
+  const stamp=new Date().toISOString().slice(0,16).replace('T',' ');
+  const rec={id:crypto.randomUUID(),
+    name:'Oola DJ Mix '+stamp+'.webm',
+    title:'DJ Mix '+stamp,
+    type:'audio', mime:blob.type||'audio/webm', size:blob.size,
+    duration, thumb:null, blob, addedAt:Date.now(), pos:0};
+  await dbAdd(rec);
+  await refresh(); await updateStorage();
+  // offer immediate download too
+  const dl=confirm('Mix saved to your library ('+fmtSize(blob.size)+', '+fmtDur(duration)+').\n\nDownload it now as a file?');
+  if(dl){
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=rec.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }
+}
 function djCurrentPos(d){
   return d.playing ? d.offset+(djCtx.currentTime-d.startedAt)*d.rate : d.offset;
 }
@@ -1863,13 +1984,14 @@ function djToggleLoop(deckId){
   const btn=document.querySelector('#deck'+deckId+' .loopBtn');
   btn.classList.toggle('on', d.loop);
   if(d.loop){
-    const beats=4, bpm=d.bpm||120;
+    const sel=document.querySelector('#deck'+deckId+' .loopLen');
+    const beats=sel?parseInt(sel.value,10):4;
+    const bpm=d.bpm||120;
     d.loopLen=(60/bpm)*beats;
     d.loopStart=djCurrentPos(d);
-    // restart source with loop enabled from current pos
     if(d.playing){ djPause(deckId); d.offset=d.loopStart; djPlay(deckId); }
   } else {
-    if(d.playing){ djPause(deckId); djPlay(deckId); } // restart without loop
+    if(d.playing){ djPause(deckId); djPlay(deckId); }
   }
 }
 
@@ -1988,6 +2110,11 @@ function initDjUI(){
   document.querySelectorAll('.playBtn').forEach(b=>b.addEventListener('click',()=>djTogglePlay(b.dataset.deck)));
   document.querySelectorAll('.cueBtn').forEach(b=>b.addEventListener('click',()=>djCue(b.dataset.deck)));
   document.querySelectorAll('.loopBtn').forEach(b=>b.addEventListener('click',()=>djToggleLoop(b.dataset.deck)));
+  document.querySelectorAll('.hotCue').forEach(b=>{
+    b.addEventListener('click',()=>hotCue(b.dataset.deck, +b.dataset.cue));
+    b.addEventListener('contextmenu',e=>{ e.preventDefault(); clearHotCue(b.dataset.deck, +b.dataset.cue); });
+  });
+  $('#djRecBtn').addEventListener('click', djToggleRecord);
   document.querySelectorAll('.tempo').forEach(s=>s.addEventListener('input',e=>djSetTempo(e.target.dataset.deck,+e.target.value)));
   document.querySelectorAll('.vol').forEach(s=>s.addEventListener('input',e=>{const d=decks[e.target.dataset.deck]; if(d)d.vol.gain.setTargetAtTime(+e.target.value,djCtx.currentTime,0.02);}));
   document.querySelectorAll('.eqLo').forEach(s=>s.addEventListener('input',e=>{const d=decks[e.target.dataset.deck]; if(d)d.lo.gain.setTargetAtTime(+e.target.value,djCtx.currentTime,0.02);}));
