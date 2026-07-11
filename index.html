@@ -220,7 +220,13 @@
   .full.show{display:flex}
   .full .top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
   .full .top button{background:none;border:0;color:var(--text);font-size:22px;cursor:pointer;padding:6px}
-  .full .top .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em}
+  .full .top .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em;flex:1}
+  .npToggle{font-size:18px!important;opacity:.6}
+  .npToggle.on{opacity:1;color:var(--video)!important}
+  .npBar{margin:0 auto 10px;max-width:1120px;width:100%;text-align:center;
+    font-size:15px;font-weight:600;color:var(--text);padding:2px 12px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .npBar.hidden{display:none}
   .stage{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative;width:100%}
   #video{width:100%;height:100%;max-height:100%;object-fit:contain;border-radius:14px;background:#000;display:none}
   .novideo{position:absolute;inset:0;display:none;flex-direction:column;gap:10px;
@@ -351,7 +357,9 @@
   <div class="top">
     <button id="collapse">▾</button>
     <span class="lbl" id="fullLbl">Now playing</span>
+    <button class="npToggle" id="npToggle" title="Show/hide title">🏷️</button>
   </div>
+  <div class="npBar" id="npBar"><span id="npBarTitle">—</span></div>
   <div class="stage" id="stage">
     <video id="video" playsinline controls></video>
     <div class="novideo" id="noVideo">
@@ -796,6 +804,7 @@ function setNowPlaying(rec){
   const sub=`${rec.type==='video'?'Video':'Audio'} · ${fmtDur(rec.duration)}`;
   $('#miniTitle').textContent=rec.title; $('#miniSub').textContent=sub;
   $('#npTitle').textContent=rec.title; $('#npSub').textContent=sub;
+  $('#npBarTitle').textContent=rec.title;
   $('#fullLbl').textContent=rec.type==='video'?'Now playing · video':'Now playing · music';
   const mt=$('#miniThumb'); mt.innerHTML=rec.thumb?`<img src="${rec.thumb}">`:(rec.type==='video'?'🎬':'♪');
 }
@@ -1154,6 +1163,26 @@ $('#viewToggle').addEventListener('click', ()=>{
   applyLibViewMode(); saveViewPref();
 });
 
+/* ---------------- now-playing title bar toggle ---------------- */
+let npTitleShown=true;
+const NP_SETTING_ID='__setting_npTitle';
+async function loadNpPref(){
+  try{
+    const rec=await dbGet(NP_SETTING_ID);
+    if(rec && typeof rec.value==='boolean') npTitleShown=rec.value;
+  }catch(_){}
+  applyNpTitle();
+}
+function applyNpTitle(){
+  $('#npBar').classList.toggle('hidden', !npTitleShown);
+  $('#npToggle').classList.toggle('on', npTitleShown);
+}
+$('#npToggle').addEventListener('click', async ()=>{
+  npTitleShown=!npTitleShown;
+  applyNpTitle();
+  try{ await dbAdd({id:NP_SETTING_ID, value:npTitleShown, __setting:true}); }catch(_){}
+});
+
 /* ---------------- details view + download ---------------- */
 function fmtDate(ts){
   if(!ts) return '—';
@@ -1203,6 +1232,7 @@ async function downloadItem(id){
   initPickerFromURL();
   await refresh(); await updateStorage();
   await loadViewPref();
+  await loadNpPref();
   if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
