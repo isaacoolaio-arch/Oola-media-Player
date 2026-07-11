@@ -266,6 +266,26 @@
   .extra button{background:var(--surface);border:1px solid var(--line);color:var(--muted);
     border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
   .extra button.on{color:var(--text);border-color:var(--muted)}
+  #fxBtn.on{color:var(--music);border-color:var(--music)}
+
+  /* ---------- audio effects panel ---------- */
+  .fxPanel{max-width:520px;margin:14px auto 0;width:100%;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+  .fxPresets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .fxPresets button{background:var(--surface-2);border:1px solid var(--line);color:var(--muted);
+    padding:6px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer}
+  .fxPresets button.on{color:var(--text);border-color:var(--music)}
+  .fxRow{display:flex;align-items:center;gap:10px;margin:9px 0}
+  .fxRow span:first-child{width:82px;flex:none;font-size:12.5px;color:var(--muted)}
+  .fxRow input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;
+    background:var(--surface-2);outline:none}
+  .fxRow input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;
+    border-radius:50%;background:var(--music);cursor:pointer}
+  .fxRow input[type=range]::-moz-range-thumb{width:15px;height:15px;border:0;border-radius:50%;background:var(--music)}
+  .fxVal{width:40px;flex:none;text-align:right;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .fxReset{margin-top:12px;width:100%;background:var(--surface-2);border:1px solid var(--line);
+    color:var(--muted);border-radius:10px;padding:9px;font-size:12.5px;font-weight:600;cursor:pointer}
+  .fxReset:active{color:var(--danger)}
   @media (prefers-reduced-motion:reduce){canvas#viz{opacity:.9}}
 
   /* ---------- desktop / wide screens ---------- */
@@ -387,6 +407,25 @@
   <div class="extra">
     <span class="npBar" id="npBar"><span id="npBarTitle">—</span></span>
     <button id="speed">1.0×</button>
+    <button id="fxBtn" title="Audio effects">🎛️ Effects</button>
+  </div>
+
+  <div class="fxPanel" id="fxPanel" style="display:none">
+    <div class="fxPresets" id="fxPresets">
+      <button data-preset="flat" class="on">Flat</button>
+      <button data-preset="bass">Bass Boost</button>
+      <button data-preset="vocal">Vocal</button>
+      <button data-preset="treble">Bright</button>
+      <button data-preset="hall">Concert Hall</button>
+    </div>
+    <div class="fxRow"><span>Bass</span><input type="range" id="fxBass" min="-12" max="12" step="1" value="0"><span class="fxVal" id="fxBassV">0</span></div>
+    <div class="fxRow"><span>Mid</span><input type="range" id="fxMid" min="-12" max="12" step="1" value="0"><span class="fxVal" id="fxMidV">0</span></div>
+    <div class="fxRow"><span>Treble</span><input type="range" id="fxTreble" min="-12" max="12" step="1" value="0"><span class="fxVal" id="fxTrebleV">0</span></div>
+    <div class="fxRow"><span>Bass boost</span><input type="range" id="fxBassBoost" min="0" max="15" step="1" value="0"><span class="fxVal" id="fxBassBoostV">0</span></div>
+    <div class="fxRow"><span>Volume boost</span><input type="range" id="fxVolume" min="1" max="3" step="0.1" value="1"><span class="fxVal" id="fxVolumeV">1.0×</span></div>
+    <div class="fxRow"><span>Reverb</span><input type="range" id="fxReverb" min="0" max="1" step="0.05" value="0"><span class="fxVal" id="fxReverbV">0%</span></div>
+    <div class="fxRow"><span>Echo</span><input type="range" id="fxEcho" min="0" max="0.8" step="0.05" value="0"><span class="fxVal" id="fxEchoV">0%</span></div>
+    <button class="fxReset" id="fxReset">Reset all effects</button>
   </div>
 </div>
 
@@ -674,16 +713,171 @@ function escapeHtml(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 
 /* ---------------- playback ---------------- */
 const audio=$('#audio'), video=$('#video');
-let actx=null, analyser=null, srcNode=null, rafId=null;
+let actx=null, analyser=null, rafId=null;
+// effect nodes (created once)
+let fx={ srcAudio:null, srcVideo:null, low:null, mid:null, high:null, bassBoost:null,
+         dry:null, wet:null, delay:null, feedback:null, convolver:null,
+         reverbGain:null, echoGain:null, outGain:null, built:false };
+let fxSettings={ bass:0, mid:0, treble:0, bassBoost:0, volume:1, reverb:0, echo:0 };
+
+function buildFxChain(){
+  if(fx.built) return;
+  // filters
+  fx.low=actx.createBiquadFilter(); fx.low.type='lowshelf'; fx.low.frequency.value=200;
+  fx.mid=actx.createBiquadFilter(); fx.mid.type='peaking'; fx.mid.frequency.value=1000; fx.mid.Q.value=0.8;
+  fx.high=actx.createBiquadFilter(); fx.high.type='highshelf'; fx.high.frequency.value=3200;
+  fx.bassBoost=actx.createBiquadFilter(); fx.bassBoost.type='lowshelf'; fx.bassBoost.frequency.value=120;
+
+  // dry path + wet (reverb + echo) paths merge into outGain
+  fx.dry=actx.createGain(); fx.dry.gain.value=1;
+  fx.outGain=actx.createGain(); fx.outGain.gain.value=1;
+
+  // echo (delay + feedback)
+  fx.delay=actx.createDelay(1.5); fx.delay.delayTime.value=0.28;
+  fx.feedback=actx.createGain(); fx.feedback.gain.value=0.35;
+  fx.echoGain=actx.createGain(); fx.echoGain.gain.value=0; // wet level
+
+  // reverb (convolver with generated impulse)
+  fx.convolver=actx.createConvolver(); fx.convolver.buffer=makeImpulse(2.2,2.5);
+  fx.reverbGain=actx.createGain(); fx.reverbGain.gain.value=0; // wet level
+
+  analyser=actx.createAnalyser(); analyser.fftSize=256;
+
+  // wire EQ chain: (source) -> low -> mid -> high -> bassBoost -> [splits]
+  fx.high.connect(fx.bassBoost);
+  fx.low.connect(fx.mid); fx.mid.connect(fx.high);
+  // dry
+  fx.bassBoost.connect(fx.dry); fx.dry.connect(fx.outGain);
+  // echo path
+  fx.bassBoost.connect(fx.delay); fx.delay.connect(fx.feedback);
+  fx.feedback.connect(fx.delay);           // feedback loop
+  fx.delay.connect(fx.echoGain); fx.echoGain.connect(fx.outGain);
+  // reverb path
+  fx.bassBoost.connect(fx.convolver); fx.convolver.connect(fx.reverbGain);
+  fx.reverbGain.connect(fx.outGain);
+  // out -> analyser -> destination
+  fx.outGain.connect(analyser); analyser.connect(actx.destination);
+
+  fx.built=true;
+  applyFxSettings();
+}
+
+// generate a decaying-noise impulse response for reverb
+function makeImpulse(duration, decay){
+  const rate=actx.sampleRate, len=Math.floor(rate*duration);
+  const buf=actx.createBuffer(2,len,rate);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    for(let i=0;i<len;i++){ d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); }
+  }
+  return buf;
+}
 
 function ensureAudioGraph(){
-  if(actx) { if(actx.state==='suspended') actx.resume(); return; }
-  const AC=window.AudioContext||window.webkitAudioContext;
-  if(!AC) return;
-  actx=new AC();
-  srcNode=actx.createMediaElementSource(audio); // once per element
-  analyser=actx.createAnalyser(); analyser.fftSize=256;
-  srcNode.connect(analyser); analyser.connect(actx.destination);
+  if(!actx){
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    actx=new AC();
+  }
+  if(actx.state==='suspended') actx.resume();
+  buildFxChain();
+  // connect whichever media element is active, once each
+  const el=isVideo?video:audio;
+  if(el===audio && !fx.srcAudio){ fx.srcAudio=actx.createMediaElementSource(audio); fx.srcAudio.connect(fx.low); }
+  if(el===video && !fx.srcVideo){ fx.srcVideo=actx.createMediaElementSource(video); fx.srcVideo.connect(fx.low); }
+}
+
+function applyFxSettings(){
+  if(!fx.built) return;
+  const t=actx.currentTime;
+  fx.low.gain.setTargetAtTime(fxSettings.bass, t, 0.02);
+  fx.mid.gain.setTargetAtTime(fxSettings.mid, t, 0.02);
+  fx.high.gain.setTargetAtTime(fxSettings.treble, t, 0.02);
+  fx.bassBoost.gain.setTargetAtTime(fxSettings.bassBoost, t, 0.02);
+  fx.outGain.gain.setTargetAtTime(fxSettings.volume, t, 0.02);
+  fx.reverbGain.gain.setTargetAtTime(fxSettings.reverb, t, 0.02);
+  fx.echoGain.gain.setTargetAtTime(fxSettings.echo, t, 0.02);
+  // reduce dry a touch when wet effects are strong, to avoid clipping
+  const wet=Math.max(fxSettings.reverb, fxSettings.echo);
+  fx.dry.gain.setTargetAtTime(1-Math.min(0.4,wet*0.4), t, 0.02);
+}
+
+/* ---------------- effects panel UI ---------------- */
+const FX_PRESETS={
+  flat:  {bass:0, mid:0, treble:0, bassBoost:0, reverb:0, echo:0},
+  bass:  {bass:7, mid:0, treble:-1, bassBoost:8, reverb:0, echo:0},
+  vocal: {bass:-2, mid:5, treble:2, bassBoost:0, reverb:0.12, echo:0},
+  treble:{bass:-1, mid:1, treble:7, bassBoost:0, reverb:0, echo:0},
+  hall:  {bass:2, mid:0, treble:1, bassBoost:2, reverb:0.55, echo:0.2},
+};
+function fxUpdateLabels(){
+  $('#fxBassV').textContent=fxSettings.bass;
+  $('#fxMidV').textContent=fxSettings.mid;
+  $('#fxTrebleV').textContent=fxSettings.treble;
+  $('#fxBassBoostV').textContent=fxSettings.bassBoost;
+  $('#fxVolumeV').textContent=fxSettings.volume.toFixed(1)+'×';
+  $('#fxReverbV').textContent=Math.round(fxSettings.reverb*100)+'%';
+  $('#fxEchoV').textContent=Math.round(fxSettings.echo/0.8*100)+'%';
+}
+function fxSyncSliders(){
+  $('#fxBass').value=fxSettings.bass; $('#fxMid').value=fxSettings.mid;
+  $('#fxTreble').value=fxSettings.treble; $('#fxBassBoost').value=fxSettings.bassBoost;
+  $('#fxVolume').value=fxSettings.volume; $('#fxReverb').value=fxSettings.reverb;
+  $('#fxEcho').value=fxSettings.echo;
+  fxUpdateLabels();
+}
+function fxChanged(){
+  ensureAudioGraph();       // make sure the chain exists & is connected
+  applyFxSettings();
+  fxUpdateLabels();
+  markFxActive();
+  saveFxPref();
+}
+function markFxActive(){
+  const active = fxSettings.bass||fxSettings.mid||fxSettings.treble||fxSettings.bassBoost
+    || fxSettings.reverb||fxSettings.echo || fxSettings.volume!==1;
+  $('#fxBtn').classList.toggle('on', !!active);
+}
+// slider bindings
+[['fxBass','bass'],['fxMid','mid'],['fxTreble','treble'],['fxBassBoost','bassBoost'],
+ ['fxVolume','volume'],['fxReverb','reverb'],['fxEcho','echo']].forEach(([id,key])=>{
+  $('#'+id).addEventListener('input', e=>{ fxSettings[key]=+e.target.value; fxChanged();
+    $('#fxPresets .on')?.classList.remove('on'); });
+});
+// presets
+$('#fxPresets').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const p=FX_PRESETS[b.dataset.preset]; if(!p) return;
+  [...$('#fxPresets').children].forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  Object.assign(fxSettings, p); // volume kept as-is unless preset sets it
+  fxSyncSliders(); fxChanged();
+});
+// reset
+$('#fxReset').addEventListener('click', ()=>{
+  fxSettings={bass:0,mid:0,treble:0,bassBoost:0,volume:1,reverb:0,echo:0};
+  [...$('#fxPresets').children].forEach(x=>x.classList.remove('on'));
+  $('#fxPresets button[data-preset="flat"]').classList.add('on');
+  fxSyncSliders(); fxChanged();
+});
+// panel toggle
+$('#fxBtn').addEventListener('click', ()=>{
+  const p=$('#fxPanel');
+  const showing = p.style.display!=='none';
+  p.style.display = showing ? 'none' : 'block';
+  if(!showing) p.scrollIntoView({behavior:'smooth',block:'nearest'});
+});
+// persistence
+const FX_SETTING_ID='__setting_fx';
+async function saveFxPref(){
+  try{ await dbAdd({id:FX_SETTING_ID, value:JSON.stringify(fxSettings), __setting:true}); }catch(_){}
+}
+async function loadFxPref(){
+  try{
+    const rec=await dbGet(FX_SETTING_ID);
+    if(rec && rec.value){ const s=JSON.parse(rec.value); if(s&&typeof s==='object') Object.assign(fxSettings,s); }
+  }catch(_){}
+  fxSyncSliders(); markFxActive();
 }
 
 async function playId(id){
@@ -708,7 +902,8 @@ async function playId(id){
 
   setNowPlaying(rec);
   openFull();
-  if(!isVideo){ ensureAudioGraph(); startViz(); }
+  ensureAudioGraph();
+  if(!isVideo){ startViz(); }
   try{ await el.play(); }catch(_){}
   markPlaying(true);
   renderLib();
@@ -731,7 +926,7 @@ function markPlaying(p){
   if('mediaSession'in navigator) navigator.mediaSession.playbackState=p?'playing':'paused';
 }
 function togglePlay(){const el=activeEl();if(!current)return;
-  if(el.paused){ if(!isVideo)ensureAudioGraph(); el.play();markPlaying(true);if(!isVideo)startViz();}
+  if(el.paused){ ensureAudioGraph(); el.play();markPlaying(true);if(!isVideo)startViz();}
   else{el.pause();markPlaying(false);}}
 
 $('#pp').onclick=togglePlay; $('#miniPP').onclick=e=>{e.stopPropagation();togglePlay();};
@@ -1233,6 +1428,7 @@ async function downloadItem(id){
   await refresh(); await updateStorage();
   await loadViewPref();
   await loadNpPref();
+  await loadFxPref();
   if('serviceWorker'in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
