@@ -603,7 +603,12 @@
         <div class="editRow"><span>Start</span><input type="range" id="editStart" min="0" max="0" value="0" step="0.5"><span id="editStartLbl" class="mono">0:00</span></div>
         <div class="editRow"><span>End</span><input type="range" id="editEnd" min="0" max="0" value="0" step="0.5"><span id="editEndLbl" class="mono">0:00</span></div>
         <button class="previewSel" id="previewSel">▶ Preview selection</button>
-        <p class="hint">Cuts the clip to the selected range and re-encodes it as MP4. Drag the sliders — the preview seeks with you. Tap <b>Preview selection</b> to hear the trimmed part before applying.</p>
+        <div class="segLabel" id="trimFmtLabel" style="margin-top:12px;display:none">Save trimmed part as</div>
+        <div class="seg" id="trimFmt" style="display:none">
+          <button data-v="mp4" class="on">MP4 (video)</button>
+          <button data-v="mp3">MP3 (audio only)</button>
+        </div>
+        <p class="hint">Cuts the clip to the selected range. Drag the sliders — the preview seeks with you. Tap <b>Preview selection</b> to hear the trimmed part before applying.</p>
       </div>
 
       <div class="editPanel" id="panelCompress" style="display:none">
@@ -1425,6 +1430,13 @@ async function openEdit(id){
   const el=isVid?pv:pa;
   el.pause(); el.src=editPreviewUrl; el.currentTime=0;
 
+  // trim output format picker only makes sense for video (MP4 vs MP3-audio-only)
+  $('#trimFmt').style.display=isVid?'flex':'none';
+  $('#trimFmtLabel').style.display=isVid?'block':'none';
+  // reset to MP4 default each open
+  [...$('#trimFmt').children].forEach(x=>x.classList.remove('on'));
+  $('#trimFmt button[data-v="mp4"]').classList.add('on');
+
   $('#editSheet').classList.add('show');
 }
 function activeEditPreview(){ return $('#editPreviewVideo').style.display!=='none' ? $('#editPreviewVideo') : $('#editPreviewAudio'); }
@@ -1492,7 +1504,7 @@ function segHandler(containerId){
     b.classList.add('on');
   });
 }
-segHandler('compressQ'); segHandler('compressRes'); segHandler('rotateDeg'); segHandler('convertFmt');
+segHandler('compressQ'); segHandler('compressRes'); segHandler('rotateDeg'); segHandler('convertFmt'); segHandler('trimFmt');
 function getSeg(containerId){ const on=document.querySelector('#'+containerId+' button.on'); return on?on.dataset.v:null; }
 
 const CONVERT_HINTS={
@@ -1529,9 +1541,16 @@ async function applyEdit(){
     let outName, outMime, args, suffix;
     if(editTool==='trim'){
       const s=+$('#editStart').value, e=+$('#editEnd').value, dur=Math.max(0.1,e-s);
-      outName='out.mp4'; outMime='video/mp4'; suffix=' (trimmed)';
-      args=['-ss',String(s),'-i',inName,'-t',String(dur),
-            '-c:v','libx264','-preset','veryfast','-crf','23','-c:a','aac','-movflags','+faststart',outName];
+      const trimFmt=getSeg('trimFmt')||'mp4';
+      if(trimFmt==='mp3'){
+        outName='out.mp3'; outMime='audio/mpeg'; suffix=' (trimmed) (mp3)';
+        args=['-ss',String(s),'-i',inName,'-t',String(dur),
+              '-vn','-c:a','libmp3lame','-b:a','192k',outName];
+      } else {
+        outName='out.mp4'; outMime='video/mp4'; suffix=' (trimmed)';
+        args=['-ss',String(s),'-i',inName,'-t',String(dur),
+              '-c:v','libx264','-preset','veryfast','-crf','23','-c:a','aac','-movflags','+faststart',outName];
+      }
     } else if(editTool==='compress'){
       const crf={high:'20',medium:'26',low:'32'}[getSeg('compressQ')||'medium'];
       const res=getSeg('compressRes')||'orig';
