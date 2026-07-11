@@ -75,6 +75,17 @@
   .meta .s{font-size:12px;color:var(--muted);margin-top:1px}
   .row.active .meta .t{color:var(--music)}
   .row.video-active .meta .t{color:var(--video)}
+
+  /* compact list view — tight vertical rows like a file manager's details view */
+  .lib:not(.grid) .row{gap:10px;padding:6px 8px;border-radius:8px;border-bottom:1px solid var(--line)}
+  .lib:not(.grid) .row:last-child{border-bottom:0}
+  .lib:not(.grid) .thumb{width:34px;height:34px;border-radius:7px}
+  .lib:not(.grid) .thumb .ic{font-size:15px}
+  .lib:not(.grid) .thumb .badge{font-size:7px;padding:0 3px}
+  .lib:not(.grid) .meta .t{font-size:13px}
+  .lib:not(.grid) .meta .s{font-size:11px;margin-top:0}
+  .lib:not(.grid) .info,.lib:not(.grid) .dl,
+  .lib:not(.grid) .edit,.lib:not(.grid) .del{font-size:13px;padding:5px}
   .del{flex:none;background:none;border:0;color:var(--muted);font-size:17px;padding:8px;cursor:pointer;opacity:.55}
   .del:active{color:var(--danger);opacity:1}
   .edit{flex:none;background:none;border:0;color:var(--muted);font-size:15px;padding:8px;cursor:pointer;opacity:.55}
@@ -257,8 +268,7 @@
     .import{align-items:center}
     .dropHint{display:inline}
     .lib:not(.grid){max-width:1080px;margin:0 auto;width:100%;
-         display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
-         gap:2px 20px;align-content:start;padding:2px 0 120px}
+         display:block;padding:2px 0 120px}
     .lib.grid{max-width:1080px;margin:0 auto;width:100%;
          grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;padding:6px 0 120px}
     .row{cursor:pointer;transition:background .12s}
