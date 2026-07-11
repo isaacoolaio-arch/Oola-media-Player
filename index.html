@@ -327,8 +327,8 @@
   .djTop button{background:none;border:0;color:var(--text);font-size:22px;cursor:pointer;padding:4px 8px}
   .djTitle{font-size:16px;font-weight:700}
   .djHint{font-size:12px;color:var(--muted);margin-left:auto}
-  .djDecks{display:grid;grid-template-columns:1fr 180px 1fr;gap:14px;flex:1;min-height:0;align-items:start}
-  .deck{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:10px}
+  .djDecks{display:grid;grid-template-columns:1fr 150px 1fr;gap:8px;flex:1;min-height:0;align-items:start}
+  .deck{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;display:flex;flex-direction:column;gap:7px}
   .deckHead{display:flex;align-items:center;justify-content:space-between}
   .deckLabel{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--muted)}
   .deckLoad{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
@@ -338,19 +338,28 @@
   .wave{width:100%;height:46px;background:#0a0c11;border-radius:8px;display:block}
 
   /* ---- turntable ---- */
-  .turntable{position:relative;width:100%;aspect-ratio:1/1;max-width:260px;margin:4px auto;display:flex;align-items:center;justify-content:center}
+  .turntable{position:relative;width:100%;aspect-ratio:1/1;max-width:190px;margin:2px auto;display:flex;align-items:center;justify-content:center}
   .platter{width:88%;height:88%;border-radius:50%;position:relative;
     background:radial-gradient(circle at 50% 50%, #14161d 0 26%, #0c0d12 26% 100%);
     box-shadow:0 0 0 6px #0a0b10, 0 8px 30px #000a, inset 0 0 30px #000;}
   #deckA .platter{box-shadow:0 0 0 6px #0a0b10, 0 0 34px var(--video-dim,#57d9c655), inset 0 0 30px #000}
   #deckB .platter{box-shadow:0 0 0 6px #0a0b10, 0 0 34px var(--music-dim,#ff5c7a55), inset 0 0 30px #000}
-  .vinyl{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .vinyl{position:absolute;inset:0;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:grab}
+  .vinyl:active{cursor:grabbing}
   .platter.spin .vinyl{animation:spin 2s linear infinite}
+  .platter.dragging .vinyl{animation:none!important}
   @keyframes spin{to{transform:rotate(360deg)}}
   .groove{position:absolute;border-radius:50%;border:1px solid #ffffff08}
   .groove.g1{inset:9%}.groove.g2{inset:17%}.groove.g3{inset:25%}.groove.g4{inset:33%}
+  /* bright marker so rotation is obvious */
+  .marker{position:absolute;top:6%;left:calc(50% - 2px);width:4px;height:20%;border-radius:3px;z-index:2}
+  #deckA .marker{background:var(--video);box-shadow:0 0 8px var(--video)}
+  #deckB .marker{background:var(--music);box-shadow:0 0 8px var(--music)}
+  .markerDot{position:absolute;top:4%;left:calc(50% - 5px);width:10px;height:10px;border-radius:50%;z-index:2}
+  #deckA .markerDot{background:#eafffb;box-shadow:0 0 10px var(--video)}
+  #deckB .markerDot{background:#ffeef2;box-shadow:0 0 10px var(--music)}
   .label{width:46%;height:46%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;
-    position:relative;z-index:2;box-shadow:inset 0 0 0 2px #ffffff14}
+    position:relative;z-index:3;box-shadow:inset 0 0 0 2px #ffffff14}
   #deckA .label{background:radial-gradient(circle,#1a2b2c,#0f1a1b)}
   #deckB .label{background:radial-gradient(circle,#2b1a20,#1b0f14)}
   .label img{width:100%;height:100%;object-fit:cover}
@@ -642,6 +651,7 @@
           <div class="vinyl">
             <span class="groove g1"></span><span class="groove g2"></span>
             <span class="groove g3"></span><span class="groove g4"></span>
+            <span class="marker"></span><span class="markerDot"></span>
             <div class="label" id="labelA"><span class="labelIc">♪</span></div>
             <div class="spindle"></div>
           </div>
@@ -699,6 +709,7 @@
           <div class="vinyl">
             <span class="groove g1"></span><span class="groove g2"></span>
             <span class="groove g3"></span><span class="groove g4"></span>
+            <span class="marker"></span><span class="markerDot"></span>
             <div class="label" id="labelB"><span class="labelIc">♪</span></div>
             <div class="spindle"></div>
           </div>
@@ -1782,6 +1793,17 @@ function djCue(deckId){
 function djCurrentPos(d){
   return d.playing ? d.offset+(djCtx.currentTime-d.startedAt)*d.rate : d.offset;
 }
+// seek to an absolute time offset (restart source if playing, since buffer sources can't seek)
+function djSeek(deckId, pos){
+  const d=decks[deckId]; if(!d.buffer) return;
+  pos=Math.max(0, Math.min(d.dur-0.02, pos));
+  const wasPlaying=d.playing;
+  if(wasPlaying){ try{ d.source.stop(); }catch(_){} d.source=null; }
+  d.offset=pos;
+  if(wasPlaying){ d.source=djStartSource(d, 0, d.offset); d.startedAt=djCtx.currentTime; }
+  $('#cur'+deckId).textContent=fmtDur(pos);
+  drawWave(deckId, pos);
+}
 function djTick(deckId){
   const d=decks[deckId];
   const step=()=>{
@@ -1942,6 +1964,68 @@ function initDjUI(){
   $('#djSync').addEventListener('click',djSync);
   $('#djPickerClose').addEventListener('click',()=>$('#djPicker').style.display='none');
   $('#djPickerSearch').addEventListener('input',e=>renderDjPicker(e.target.value));
+  setupScratch('A'); setupScratch('B');
+}
+
+/* ---- drag-to-scratch on the vinyl ---- */
+function setupScratch(deckId){
+  const platter=$('#platter'+deckId);
+  const vinyl=platter?.querySelector('.vinyl');
+  if(!vinyl) return;
+  let dragging=false, lastAngle=0, accum=0, wasPlaying=false, manualRot=0;
+
+  function angleFrom(e){
+    const r=platter.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const p=e.touches?e.touches[0]:e;
+    return Math.atan2(p.clientY-cy, p.clientX-cx);
+  }
+  function down(e){
+    const d=decks[deckId]; if(!d.buffer) return;
+    e.preventDefault();
+    dragging=true; wasPlaying=d.playing;
+    platter.classList.add('dragging');
+    lastAngle=angleFrom(e); accum=0;
+    // read current visual rotation to continue from it
+    manualRot = djCurrentPos(d)/ (60/ (d.bpm||120)) * 0; // keep simple; start from 0 delta
+    // if playing, we keep audio going but will seek on move
+  }
+  let lastSeek=0;
+  function move(e){
+    if(!dragging) return;
+    const a=angleFrom(e);
+    let delta=a-lastAngle;
+    if(delta>Math.PI) delta-=2*Math.PI;
+    if(delta<-Math.PI) delta+=2*Math.PI;
+    lastAngle=a; accum+=delta;
+    // rotate vinyl visually to follow finger (always, smooth)
+    manualRot += delta*180/Math.PI;
+    vinyl.style.transform='rotate('+manualRot+'deg)';
+    // throttle actual audio seeking to ~40ms to avoid crackle
+    const now=performance.now();
+    if(now-lastSeek<40) return;
+    lastSeek=now;
+    const secPerTurn=1.8;
+    const deltaTime=(accum/(2*Math.PI))*secPerTurn;
+    accum=0;
+    const d2=decks[deckId];
+    djSeek(deckId, djCurrentPos(d2)+deltaTime);
+  }
+  function up(){
+    if(!dragging) return;
+    dragging=false;
+    platter.classList.remove('dragging');
+    const d=decks[deckId];
+    // resume normal spin transform handoff
+    vinyl.style.transform='';
+    if(wasPlaying && !d.playing){ djPlay(deckId); }
+  }
+  vinyl.addEventListener('mousedown',down);
+  window.addEventListener('mousemove',move);
+  window.addEventListener('mouseup',up);
+  vinyl.addEventListener('touchstart',down,{passive:false});
+  window.addEventListener('touchmove',move,{passive:false});
+  window.addEventListener('touchend',up);
 }
 
 /* ---------------- init ---------------- */
