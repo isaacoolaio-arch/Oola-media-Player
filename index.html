@@ -2040,26 +2040,21 @@ let padCustom={}; // padIndex -> {title, buffer}
 let samplerPickTarget=null;
 
 function initSampler(){
-  djEnsureCtx();
-  if(!samplerGain){
-    samplerGain=djCtx.createGain(); samplerGain.gain.value=0.9;
-    samplerGain.connect(djMaster);
-  }
-  const pads=$('#pads'); pads.innerHTML='';
+  // Build the pad UI immediately — NO audio context needed yet (that would
+  // be blocked before a user gesture and abort pad rendering).
+  const pads=$('#pads'); if(!pads) return; pads.innerHTML='';
   SAMPLE_DEFS.forEach((def,i)=>{
     const pad=document.createElement('div'); pad.className='pad'; pad.dataset.i=i;
     pad.innerHTML=`<span class="padName">${def.name}</span><span class="padNum">${i+1}</span>`;
     pad.addEventListener('click',()=>firePad(i));
-    // right-click => assign custom clip
     pad.addEventListener('contextmenu',e=>{ e.preventDefault(); openSamplerPicker(i); });
-    // long-press for touch
     let lpTimer=null;
     pad.addEventListener('touchstart',e=>{ lpTimer=setTimeout(()=>{ openSamplerPicker(i); lpTimer=null; },550); },{passive:true});
     pad.addEventListener('touchend',e=>{ if(lpTimer){ clearTimeout(lpTimer); firePad(i);} });
     pads.appendChild(pad);
   });
-  $('#samplerVol').addEventListener('input',e=>{ if(samplerGain) samplerGain.gain.setTargetAtTime(+e.target.value, djCtx.currentTime,0.02); });
-  // keyboard 1-8 fire pads
+  const sv=$('#samplerVol');
+  if(sv) sv.addEventListener('input',e=>{ ensureSamplerGain(); if(samplerGain) samplerGain.gain.setTargetAtTime(+e.target.value, djCtx.currentTime,0.02); });
   document.addEventListener('keydown',e=>{
     if(!$('#djScreen').classList.contains('show')) return;
     if(e.target.tagName==='INPUT') return;
@@ -2067,9 +2062,18 @@ function initSampler(){
     if(n>=1&&n<=8) firePad(n-1);
   });
 }
+function ensureSamplerGain(){
+  djEnsureCtx();
+  if(!samplerGain){
+    samplerGain=djCtx.createGain();
+    samplerGain.gain.value=+($('#samplerVol')?.value||0.9);
+    samplerGain.connect(djMaster);
+  }
+}
 
 function firePad(i){
-  djEnsureCtx();
+  ensureSamplerGain();
+  if(djCtx.state==='suspended') djCtx.resume();
   const pad=document.querySelector('.pad[data-i="'+i+'"]');
   if(pad){ pad.classList.add('hit'); setTimeout(()=>pad.classList.remove('hit'),120); }
   if(padCustom[i] && padCustom[i].buffer){
@@ -2141,6 +2145,7 @@ function renderSamplerPicker(q){
       $('#djPicker').style.display='none';
       const rec=await dbGet(m.id); if(!rec) return;
       try{
+        ensureSamplerGain();
         const arr=await rec.blob.arrayBuffer();
         const buf=await djCtx.decodeAudioData(arr.slice(0));
         padCustom[samplerPickTarget]={title:rec.title, buffer:buf};
