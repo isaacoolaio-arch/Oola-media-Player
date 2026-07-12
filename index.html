@@ -732,8 +732,11 @@
     <div class="crateHead">
       <span class="crateTitle">CRATE</span>
       <span class="crateHint">Your quick-pick shortlist — load onto a deck in one tap</span>
-      <button id="crateAdd" class="crateAddBtn">＋ Add track</button>
+      <button id="crateFree" class="crateAddBtn" title="Open free / royalty-free music sites">🎵 Free music</button>
+      <button id="crateDevice" class="crateAddBtn" title="Import a file from your device storage">＋ From device</button>
+      <button id="crateAdd" class="crateAddBtn">＋ From library</button>
     </div>
+    <input type="file" id="crateFile" accept="audio/*,video/*" multiple style="display:none">
     <div class="crateList" id="crateList"></div>
   </div>
 
@@ -882,6 +885,14 @@
       <div class="djPickerList" id="djPickerList"></div>
     </div>
   </div>
+
+  <div class="djPicker" id="freeMusic" style="display:none">
+    <div class="djPickerCard">
+      <div class="djPickerHead"><span>🎵 Free &amp; legal music sources</span><button id="freeMusicClose">✕</button></div>
+      <p class="hint" style="margin:0 0 10px">These offer music you're allowed to download and use. Download a track to your device, then use <b>＋ From device</b> to add it here. (Streaming services like Spotify/YouTube can't be loaded — that's not permitted.)</p>
+      <div class="djPickerList" id="freeMusicList"></div>
+    </div>
+  </div>
 </div>
 
 <!-- details modal -->
@@ -962,8 +973,9 @@ const titleFrom=n=>n.replace(/\.[^.]+$/,'').replace(/[_\-]+/g,' ').trim();
 
 /* ---------------- import ---------------- */
 async function importFiles(files){
-  if(!files.length) return;
+  if(!files.length) return [];
   if(navigator.storage?.persist) navigator.storage.persist(); // ask browser not to evict
+  const created=[];
   for(const f of files){
     const type=f.type.startsWith('video')?'video':(f.type.startsWith('audio')?'audio':null);
     if(!type) continue;
@@ -975,8 +987,10 @@ async function importFiles(files){
     const rec={id:crypto.randomUUID(),name:f.name,title:titleFrom(f.name),
       type,mime:f.type,size:f.size,duration,thumb,blob:f,addedAt:Date.now(),pos:0};
     await dbAdd(rec);
+    created.push(rec);
   }
   await refresh(); updateStorage();
+  return created;
 }
 $('#file').addEventListener('change', async e=>{
   const files=[...e.target.files]; e.target.value='';
@@ -2324,6 +2338,18 @@ function initDjUI(){
     $('#crateToggle').classList.toggle('on', !showing);
   });
   $('#crateAdd').addEventListener('click', openCrateAddPicker);
+  $('#crateDevice').addEventListener('click', ()=>$('#crateFile').click());
+  $('#crateFile').addEventListener('change', async e=>{
+    const files=[...e.target.files]; e.target.value='';
+    if(!files.length) return;
+    const created=await importFiles(files);
+    // add all newly imported tracks to the crate
+    created.forEach(r=>{ if(!crate.includes(r.id)) crate.push(r.id); });
+    await saveCrate(); renderCrate();
+  });
+  $('#crateFree').addEventListener('click', openFreeMusic);
+  $('#freeMusicClose').addEventListener('click', ()=>$('#freeMusic').style.display='none');
+  $('#freeMusic').addEventListener('click', e=>{ if(e.target.id==='freeMusic') $('#freeMusic').style.display='none'; });
   loadCrate();
 }
 
@@ -2359,6 +2385,25 @@ function renderCrate(){
     row.querySelector('.cDel').addEventListener('click', ()=>{ crate=crate.filter(x=>x!==id); saveCrate(); renderCrate(); });
     list.appendChild(row);
   });
+}
+
+const FREE_MUSIC_SOURCES=[
+  {name:'Free Music Archive', url:'https://freemusicarchive.org/', note:'Large library, many CC-licensed tracks'},
+  {name:'YouTube Audio Library', url:'https://www.youtube.com/audiolibrary', note:'Free music & sound effects (Google account)'},
+  {name:'Pixabay Music', url:'https://pixabay.com/music/', note:'Royalty-free, no attribution needed'},
+  {name:'ccMixter', url:'http://ccmixter.org/', note:'Remix-friendly Creative Commons tracks'},
+  {name:'Incompetech (Kevin MacLeod)', url:'https://incompetech.com/music/', note:'Royalty-free with attribution'},
+  {name:'Internet Archive Audio', url:'https://archive.org/details/audio', note:'Public-domain & open recordings'},
+];
+function openFreeMusic(){
+  const list=$('#freeMusicList'); list.innerHTML='';
+  FREE_MUSIC_SOURCES.forEach(s=>{
+    const row=document.createElement('div'); row.className='djPickRow'; row.style.cursor='pointer';
+    row.innerHTML=`<span class="badge">↗</span><span><b>${escapeHtml(s.name)}</b><br><span style="font-size:11px;color:var(--muted)">${escapeHtml(s.note)}</span></span>`;
+    row.addEventListener('click',()=>{ window.open(s.url,'_blank','noopener'); });
+    list.appendChild(row);
+  });
+  $('#freeMusic').style.display='flex';
 }
 function openCrateAddPicker(){
   crateAddMode=true; djLoadTarget=null; samplerPickTarget=null;
