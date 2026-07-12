@@ -133,6 +133,12 @@
   .detailsActions button{flex:1;padding:11px;border-radius:10px;border:1px solid var(--line);
     background:var(--surface-2);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer}
   .detailsActions .primary{background:linear-gradient(135deg,var(--music),#ff8fa3);border:0;color:#3a0d16}
+  .renameWrap{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .renameWrap input{flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--video);
+    border-radius:10px;padding:10px 12px;color:var(--text);font-size:14px}
+  .renameWrap button{padding:10px 14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--surface-2);color:var(--text);font-size:13px;font-weight:600;cursor:pointer}
+  .renameWrap .primary{background:linear-gradient(135deg,var(--video),#8af0e2);border:0;color:#062622}
 
   /* ---------- drag & drop ---------- */
   .dropHint{display:none;font-size:12px;color:var(--muted);align-self:center;white-space:nowrap}
@@ -851,6 +857,11 @@
 <div class="detailsBack" id="detailsBack">
   <div class="detailsCard">
     <h3 id="dTitle">—</h3>
+    <div class="renameWrap" id="renameWrap" style="display:none">
+      <input type="text" id="renameInput" placeholder="Enter a new name">
+      <button class="primary" id="renameSave">Save</button>
+      <button id="renameCancel">Cancel</button>
+    </div>
     <div class="detailsRow"><span>Type</span><span id="dType">—</span></div>
     <div class="detailsRow"><span>Format</span><span id="dFormat">—</span></div>
     <div class="detailsRow"><span>Duration</span><span id="dDur">—</span></div>
@@ -858,6 +869,7 @@
     <div class="detailsRow"><span>Added</span><span id="dAdded">—</span></div>
     <div class="detailsRow"><span>File name</span><span id="dName">—</span></div>
     <div class="detailsActions">
+      <button id="dRename">✏️ Rename</button>
       <button class="primary" id="dDownload">⬇️ Download</button>
       <button id="dClose">Close</button>
     </div>
@@ -1793,12 +1805,42 @@ async function showDetails(id){
   $('#dSize').textContent=fmtSize(rec.size);
   $('#dAdded').textContent=fmtDate(rec.addedAt);
   $('#dName').textContent=rec.name||'—';
+  // reset rename UI to hidden each open
+  $('#renameWrap').style.display='none';
   $('#detailsBack').classList.add('show');
 }
 function closeDetails(){ $('#detailsBack').classList.remove('show'); detailsId=null; }
 $('#dClose').addEventListener('click', closeDetails);
 $('#detailsBack').addEventListener('click', e=>{ if(e.target.id==='detailsBack') closeDetails(); });
 $('#dDownload').addEventListener('click', ()=>{ if(detailsId) downloadItem(detailsId); });
+
+// ---- rename ----
+$('#dRename').addEventListener('click', ()=>{
+  const cur=$('#dTitle').textContent;
+  $('#renameInput').value=cur;
+  $('#renameWrap').style.display='flex';
+  $('#renameInput').focus(); $('#renameInput').select();
+});
+$('#renameCancel').addEventListener('click', ()=>{ $('#renameWrap').style.display='none'; });
+async function doRename(){
+  if(!detailsId) return;
+  const newName=$('#renameInput').value.trim();
+  if(!newName){ $('#renameInput').focus(); return; }
+  const rec=await dbGet(detailsId); if(!rec) return;
+  rec.title=newName;
+  // keep the file extension on rec.name, just swap the base
+  const ext=(rec.name||'').match(/\.[a-z0-9]{2,5}$/i);
+  rec.name=newName + (ext?ext[0]:'');
+  await dbAdd(rec);
+  // update any in-memory copies + UI
+  if(current && current.id===detailsId){ current.title=newName; setNowPlaying(rec); }
+  $('#dTitle').textContent=newName;
+  $('#dName').textContent=rec.name;
+  $('#renameWrap').style.display='none';
+  await refresh();
+}
+$('#renameSave').addEventListener('click', doRename);
+$('#renameInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doRename(); if(e.key==='Escape') $('#renameWrap').style.display='none'; });
 
 async function downloadItem(id){
   const rec=await dbGet(id); if(!rec) return;
