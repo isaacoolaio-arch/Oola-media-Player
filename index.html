@@ -443,6 +443,9 @@
   #padsA .pad{box-shadow:inset 0 0 0 1px var(--video-dim,#57d9c633)}
   #padsB .pad{box-shadow:inset 0 0 0 1px var(--music-dim,#ff5c7a33)}
   .pad.custom .padName{color:var(--music)}
+  .deckPads.assignMode .pad{border-color:var(--video);animation:assignPulse 1.3s ease-in-out infinite}
+  @keyframes assignPulse{50%{box-shadow:0 0 12px var(--video)}}
+  #samplerAssign.on{border-color:var(--video);color:var(--video)}
   .pad.hit{transform:scale(.92)}
   #padsA .pad.hit{box-shadow:0 0 16px var(--video)}
   #padsB .pad.hit{box-shadow:0 0 16px var(--music)}
@@ -694,6 +697,7 @@
     <button id="djRecBtn" class="djTopBtn djRec" title="Record your mix">● REC</button>
     <span id="djRecTime" class="djRecTime" style="display:none">00:00</span>
     <button id="samplerToggle" class="djTopBtn" title="Show/hide sampler pads">🎹 Sampler</button>
+    <button id="samplerAssign" class="djTopBtn" title="Assign your own clips: turn on, then tap a pad">⚙ Assign</button>
   </div>
 
   <div class="djDecks">
@@ -2227,6 +2231,18 @@ function initDjUI(){
     b.style.display=showing?'none':'grid';
     $('#samplerToggle').classList.toggle('on', !showing);
   });
+  $('#samplerAssign').addEventListener('click', ()=>{
+    samplerAssignMode=!samplerAssignMode;
+    $('#samplerAssign').classList.toggle('on', samplerAssignMode);
+    // make sure pads are visible when entering assign mode
+    if(samplerAssignMode){
+      $('#padsA').style.display='grid'; $('#padsB').style.display='grid';
+      $('#samplerToggle').classList.add('on');
+      $('#padsA').classList.add('assignMode'); $('#padsB').classList.add('assignMode');
+    } else {
+      $('#padsA').classList.remove('assignMode'); $('#padsB').classList.remove('assignMode');
+    }
+  });
 }
 
 /* ============================================================
@@ -2249,6 +2265,7 @@ let samplerGain=null;
 let padCustom={}; // padIndex -> {title, buffer}
 let samplerPickTarget=null;
 
+let samplerAssignMode=false;
 function initSampler(){
   // Build the pad UI immediately — NO audio context needed yet (that would
   // be blocked before a user gesture and abort pad rendering).
@@ -2257,11 +2274,13 @@ function initSampler(){
   const makePad=(def,i,container)=>{
     const pad=document.createElement('div'); pad.className='pad'; pad.dataset.i=i;
     pad.innerHTML=`<span class="padName">${def.name}</span><span class="padNum">${i+1}</span>`;
-    pad.addEventListener('click',()=>firePad(i));
+    // single unified handler: assign mode opens picker, else fires the pad
+    pad.addEventListener('click',()=>{
+      if(samplerAssignMode){ openSamplerPicker(i); }
+      else { firePad(i); }
+    });
+    // keep right-click as a shortcut on desktop
     pad.addEventListener('contextmenu',e=>{ e.preventDefault(); openSamplerPicker(i); });
-    let lpTimer=null;
-    pad.addEventListener('touchstart',e=>{ lpTimer=setTimeout(()=>{ openSamplerPicker(i); lpTimer=null; },550); },{passive:true});
-    pad.addEventListener('touchend',e=>{ if(lpTimer){ clearTimeout(lpTimer); firePad(i);} });
     container.appendChild(pad);
   };
   SAMPLE_DEFS.forEach((def,i)=>{ makePad(def,i, i<4?padsA:padsB); });
@@ -2363,6 +2382,9 @@ function renderSamplerPicker(q){
         padCustom[samplerPickTarget]={title:rec.title, buffer:buf};
         const pad=document.querySelector('.pad[data-i="'+samplerPickTarget+'"]');
         if(pad){ pad.classList.add('custom'); pad.querySelector('.padName').textContent=rec.title.slice(0,10); }
+        // exit assign mode so pads fire normally again
+        samplerAssignMode=false; $('#samplerAssign').classList.remove('on');
+        $('#padsA').classList.remove('assignMode'); $('#padsB').classList.remove('assignMode');
       }catch(e){ alert('Could not load that clip for the pad. Try an MP3 or converted file.'); }
     });
     list.appendChild(row);
