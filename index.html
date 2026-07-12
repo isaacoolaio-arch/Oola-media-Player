@@ -458,6 +458,27 @@
   .djTopBtn{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
     border-radius:16px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;margin-left:12px}
   .djTopBtn.on{border-color:var(--music);color:var(--music)}
+  #crateToggle.on{border-color:var(--video);color:var(--video)}
+
+  /* ---- crate (quick-pick shortlist) ---- */
+  .crateBar{max-width:1120px;margin:0 auto 12px;width:100%;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
+  .crateHead{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .crateTitle{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--muted)}
+  .crateHint{font-size:11px;color:var(--muted)}
+  .crateAddBtn{margin-left:auto;background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:14px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  .crateAddBtn:hover{border-color:var(--video)}
+  .crateList{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto}
+  .crateRow{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);
+    border-radius:10px;padding:7px 10px}
+  .crateRow .cName{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crateRow .cBadge{font-size:8px;font-weight:700;color:var(--muted);flex:none}
+  .crateRow button{flex:none;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--line);background:var(--surface)}
+  .crateRow .toA{color:var(--video);border-color:var(--video)}
+  .crateRow .toB{color:var(--music);border-color:var(--music)}
+  .crateRow .cDel{color:var(--muted);border:0;background:none;font-size:15px;padding:4px 6px}
+  .crateEmpty{font-size:12px;color:var(--muted);padding:8px;text-align:center}
   .djRec{color:#ff6b6b}
   .djRec.on{background:#ff5c5c;color:#fff;border-color:#ff5c5c;animation:recPulse 1.2s ease-in-out infinite}
   @keyframes recPulse{50%{opacity:.55}}
@@ -704,6 +725,16 @@
     <span id="djRecTime" class="djRecTime" style="display:none">00:00</span>
     <button id="samplerToggle" class="djTopBtn" title="Show/hide sampler pads">🎹 Sampler</button>
     <button id="samplerAssign" class="djTopBtn" title="Assign your own clips: turn on, then tap a pad">⚙ Assign</button>
+    <button id="crateToggle" class="djTopBtn" title="Show/hide your quick-pick crate">📦 Crate</button>
+  </div>
+
+  <div class="crateBar" id="crateBar" style="display:none">
+    <div class="crateHead">
+      <span class="crateTitle">CRATE</span>
+      <span class="crateHint">Your quick-pick shortlist — load onto a deck in one tap</span>
+      <button id="crateAdd" class="crateAddBtn">＋ Add track</button>
+    </div>
+    <div class="crateList" id="crateList"></div>
   </div>
 
   <div class="djDecks">
@@ -2208,7 +2239,7 @@ function updateMeter(deckId){
 
 /* ---- DJ picker ---- */
 function openDjPicker(deckId){
-  djLoadTarget=deckId; samplerPickTarget=null;
+  djLoadTarget=deckId; samplerPickTarget=null; crateAddMode=false;
   $('#djPickerTitle').textContent='Load track to Deck '+deckId;
   $('#djPickerSearch').value='';
   renderDjPicker('');
@@ -2233,7 +2264,7 @@ function renderDjPicker(q){
 
 /* ---- DJ UI wiring ---- */
 function initDjUI(){
-  $('#djLaunch').addEventListener('click', ()=>{ djEnsureCtx(); $('#djScreen').classList.add('show'); });
+  $('#djLaunch').addEventListener('click', ()=>{ djEnsureCtx(); $('#djScreen').classList.add('show'); if(typeof renderCrate==='function') renderCrate(); });
   $('#djClose').addEventListener('click', ()=>$('#djScreen').classList.remove('show'));
   document.querySelectorAll('.deckLoad').forEach(b=>b.addEventListener('click',()=>openDjPicker(b.dataset.deck)));
   document.querySelectorAll('.playBtn').forEach(b=>b.addEventListener('click',()=>djTogglePlay(b.dataset.deck)));
@@ -2253,9 +2284,10 @@ function initDjUI(){
   document.querySelectorAll('.fxEcho').forEach(s=>s.addEventListener('input',e=>{const d=decks[e.target.dataset.deck]; if(d)d.echoGain.gain.setTargetAtTime(+e.target.value,djCtx.currentTime,0.02);}));
   $('#crossfader').addEventListener('input',applyCrossfade);
   $('#djSync').addEventListener('click',djSync);
-  $('#djPickerClose').addEventListener('click',()=>{ $('#djPicker').style.display='none'; samplerPickTarget=null; });
+  $('#djPickerClose').addEventListener('click',()=>{ $('#djPicker').style.display='none'; samplerPickTarget=null; crateAddMode=false; });
   $('#djPickerSearch').addEventListener('input',e=>{
-    if(samplerPickTarget!=null) renderSamplerPicker(e.target.value);
+    if(crateAddMode) renderCrateAddPicker(e.target.value);
+    else if(samplerPickTarget!=null) renderSamplerPicker(e.target.value);
     else renderDjPicker(e.target.value);
   });
   setupScratch('A'); setupScratch('B');
@@ -2284,6 +2316,72 @@ function initDjUI(){
     } else {
       $('#padsA').classList.remove('assignMode'); $('#padsB').classList.remove('assignMode');
     }
+  });
+  $('#crateToggle').addEventListener('click', ()=>{
+    const bar=$('#crateBar');
+    const showing=bar.style.display!=='none';
+    bar.style.display=showing?'none':'block';
+    $('#crateToggle').classList.toggle('on', !showing);
+  });
+  $('#crateAdd').addEventListener('click', openCrateAddPicker);
+  loadCrate();
+}
+
+/* ============================================================
+   CRATE — a persisted quick-pick shortlist of track IDs.
+   Add tracks once, then load onto Deck A or B in one tap.
+   ============================================================ */
+let crate=[]; // array of track ids
+const CRATE_SETTING_ID='__setting_crate';
+let crateAddMode=false; // when true, the DJ picker adds to crate instead of loading a deck
+async function loadCrate(){
+  try{ const rec=await dbGet(CRATE_SETTING_ID); if(rec&&rec.value) crate=JSON.parse(rec.value)||[]; }catch(_){ crate=[]; }
+  renderCrate();
+}
+async function saveCrate(){
+  try{ await dbAdd({id:CRATE_SETTING_ID, value:JSON.stringify(crate), __setting:true}); }catch(_){}
+}
+function renderCrate(){
+  const list=$('#crateList'); if(!list) return;
+  list.innerHTML='';
+  if(!crate.length){ list.innerHTML='<div class="crateEmpty">Empty — tap ＋ Add track to build your shortlist</div>'; return; }
+  crate.forEach(id=>{
+    const m=library.find(x=>x.id===id);
+    if(!m) return; // track was deleted from library
+    const row=document.createElement('div'); row.className='crateRow';
+    row.innerHTML=`<span class="cBadge">${m.type==='video'?'VID':'MP3'}</span>`+
+      `<span class="cName">${escapeHtml(m.title)}</span>`+
+      `<button class="toA" title="Load to Deck A">▶ A</button>`+
+      `<button class="toB" title="Load to Deck B">▶ B</button>`+
+      `<button class="cDel" title="Remove from crate">✕</button>`;
+    row.querySelector('.toA').addEventListener('click', async ()=>{ const rec=await dbGet(id); if(rec) djLoad('A',rec); });
+    row.querySelector('.toB').addEventListener('click', async ()=>{ const rec=await dbGet(id); if(rec) djLoad('B',rec); });
+    row.querySelector('.cDel').addEventListener('click', ()=>{ crate=crate.filter(x=>x!==id); saveCrate(); renderCrate(); });
+    list.appendChild(row);
+  });
+}
+function openCrateAddPicker(){
+  crateAddMode=true; djLoadTarget=null; samplerPickTarget=null;
+  $('#djPickerTitle').textContent='Add a track to your crate';
+  $('#djPickerSearch').value='';
+  renderCrateAddPicker('');
+  $('#djPicker').style.display='flex';
+  $('#djPickerSearch').focus();
+}
+function renderCrateAddPicker(q){
+  const list=$('#djPickerList'); list.innerHTML='';
+  const items=library.filter(m=>!q||m.title.toLowerCase().includes(q.toLowerCase()));
+  if(!items.length){ list.innerHTML='<div style="padding:12px;color:var(--muted);font-size:13px">No tracks found.</div>'; return; }
+  items.forEach(m=>{
+    const inCrate=crate.includes(m.id);
+    const row=document.createElement('div'); row.className='djPickRow';
+    row.innerHTML=`<span class="badge">${m.type==='video'?'VID':'MP3'}</span><span>${escapeHtml(m.title)}</span>`+
+      (inCrate?'<span style="margin-left:auto;color:var(--video);font-size:12px">✓ in crate</span>':'');
+    row.addEventListener('click', ()=>{
+      if(!crate.includes(m.id)){ crate.push(m.id); saveCrate(); renderCrate(); }
+      $('#djPicker').style.display='none'; crateAddMode=false;
+    });
+    list.appendChild(row);
   });
 }
 
@@ -2391,7 +2489,7 @@ function playSynth(type){
 
 /* assign a library clip to a pad (reuses the DJ picker overlay) */
 function openSamplerPicker(padIndex){
-  samplerPickTarget=padIndex; djLoadTarget=null;
+  samplerPickTarget=padIndex; djLoadTarget=null; crateAddMode=false;
   $('#djPickerTitle').textContent='Assign clip to Pad '+(padIndex+1)+' (or long list = tap a track)';
   $('#djPickerSearch').value='';
   renderSamplerPicker('');
