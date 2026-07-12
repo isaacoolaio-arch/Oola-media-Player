@@ -461,7 +461,7 @@
   #crateToggle.on{border-color:var(--video);color:var(--video)}
 
   /* ---- crate (quick-pick shortlist) ---- */
-  .crateBar{max-width:1120px;margin:0 auto 12px;width:100%;background:var(--surface);
+  .crateBar{max-width:1120px;margin:14px auto 0;width:100%;background:var(--surface);
     border:1px solid var(--line);border-radius:var(--r);padding:12px 14px}
   .crateHead{display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
   .crateTitle{font-size:11px;font-weight:700;letter-spacing:.16em;color:var(--muted)}
@@ -728,18 +728,6 @@
     <button id="crateToggle" class="djTopBtn" title="Show/hide your quick-pick crate">📦 Crate</button>
   </div>
 
-  <div class="crateBar" id="crateBar" style="display:none">
-    <div class="crateHead">
-      <span class="crateTitle">CRATE</span>
-      <span class="crateHint">Your quick-pick shortlist — load onto a deck in one tap</span>
-      <button id="crateFree" class="crateAddBtn" title="Open free / royalty-free music sites">🎵 Free music</button>
-      <button id="crateDevice" class="crateAddBtn" title="Import a file from your device storage">＋ From device</button>
-      <button id="crateAdd" class="crateAddBtn">＋ From library</button>
-    </div>
-    <input type="file" id="crateFile" accept="audio/*,video/*" multiple style="display:none">
-    <div class="crateList" id="crateList"></div>
-  </div>
-
   <div class="djDecks">
     <!-- DECK A -->
     <div class="deck" id="deckA" data-deck="A">
@@ -872,6 +860,19 @@
       </div>
       <div class="deckPads" id="padsB" style="display:none"></div>
     </div>
+  </div>
+
+  <!-- CRATE (bottom shelf) -->
+  <div class="crateBar" id="crateBar" style="display:none">
+    <div class="crateHead">
+      <span class="crateTitle">CRATE</span>
+      <span class="crateHint">Your quick-pick shortlist — load onto a deck in one tap</span>
+      <button id="crateFree" class="crateAddBtn" title="Open free / royalty-free music sites">🎵 Free music</button>
+      <button id="crateDevice" class="crateAddBtn" title="Import a file from your device storage">＋ From device</button>
+      <button id="crateAdd" class="crateAddBtn">＋ From library</button>
+    </div>
+    <input type="file" id="crateFile" accept="audio/*,video/*" multiple style="display:none">
+    <div class="crateList" id="crateList"></div>
   </div>
 
   <!-- sampler volume (compact, shown in top bar when sampler active) -->
